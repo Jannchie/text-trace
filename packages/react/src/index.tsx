@@ -20,6 +20,7 @@ export function TextTrace({
   timing,
   verticalGuideOvershoot,
   verticalGuideProbability,
+  guideExitExtension,
   mergeOverlappingShapes,
   mergeCurveSegments,
   fontUrls,
@@ -51,6 +52,7 @@ export function TextTrace({
       timing,
       verticalGuideOvershoot,
       verticalGuideProbability,
+      guideExitExtension,
       mergeOverlappingShapes,
       mergeCurveSegments,
       fontUrls,
@@ -67,6 +69,7 @@ export function TextTrace({
     timing,
     verticalGuideOvershoot,
     verticalGuideProbability,
+    guideExitExtension,
     mergeOverlappingShapes,
     mergeCurveSegments,
     wawoff2Url

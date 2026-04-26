@@ -14,6 +14,7 @@ const URL_PARAMS = {
   eraseDelay: 'eraseDelay',
   verticalOvershoot: 'verticalOvershoot',
   verticalProbability: 'verticalProbability',
+  guideExitExtension: 'guideExitExtension',
   mergeOverlappingShapes: 'mergeOverlappingShapes'
 };
 
@@ -28,6 +29,7 @@ const fillDelayInput = readElement('fill-delay-input', HTMLInputElement);
 const eraseDelayInput = readElement('erase-delay-input', HTMLInputElement);
 const verticalOvershootInput = readElement('vertical-overshoot-input', HTMLInputElement);
 const verticalProbabilityInput = readElement('vertical-probability-input', HTMLInputElement);
+const guideExitExtensionInput = readElement('guide-exit-extension-input', HTMLInputElement);
 const mergeOverlapsInput = readElement('merge-overlaps-input', HTMLInputElement);
 const replayButton = readElement('replay-button', HTMLButtonElement);
 const phaseReadout = readElement('phase-readout', HTMLParagraphElement);
@@ -58,6 +60,7 @@ function render() {
     },
     verticalGuideOvershoot: readDelay(verticalOvershootInput),
     verticalGuideProbability: readProbability(verticalProbabilityInput),
+    guideExitExtension: readDelay(guideExitExtensionInput),
     mergeOverlappingShapes: mergeOverlapsInput.checked,
     onPhaseChange: (phase) => {
       phaseReadout.textContent = phase || 'Idle';
@@ -75,6 +78,7 @@ fillDelayInput.addEventListener('input', render);
 eraseDelayInput.addEventListener('input', render);
 verticalOvershootInput.addEventListener('input', render);
 verticalProbabilityInput.addEventListener('input', render);
+guideExitExtensionInput.addEventListener('input', render);
 mergeOverlapsInput.addEventListener('change', render);
 replayButton.addEventListener('click', render);
 
@@ -95,6 +99,7 @@ function restoreFromUrl(): void {
   setInputFromUrl(eraseDelayInput, params.get(URL_PARAMS.eraseDelay));
   setInputFromUrl(verticalOvershootInput, params.get(URL_PARAMS.verticalOvershoot));
   setInputFromUrl(verticalProbabilityInput, params.get(URL_PARAMS.verticalProbability));
+  setInputFromUrl(guideExitExtensionInput, params.get(URL_PARAMS.guideExitExtension));
   setCheckboxFromUrl(mergeOverlapsInput, params.get(URL_PARAMS.mergeOverlappingShapes));
 }
 
@@ -110,6 +115,7 @@ function writeUrl(): void {
   params.set(URL_PARAMS.eraseDelay, String(readDelay(eraseDelayInput)));
   params.set(URL_PARAMS.verticalOvershoot, String(readDelay(verticalOvershootInput)));
   params.set(URL_PARAMS.verticalProbability, String(readProbability(verticalProbabilityInput)));
+  params.set(URL_PARAMS.guideExitExtension, String(readDelay(guideExitExtensionInput)));
   params.set(URL_PARAMS.mergeOverlappingShapes, String(mergeOverlapsInput.checked));
 
   window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);

@@ -34,6 +34,7 @@ export interface TextTraceOptions {
   timing?: TextTraceTiming;
   verticalGuideOvershoot?: number;
   verticalGuideProbability?: number;
+  guideExitExtension?: number;
   mergeOverlappingShapes?: boolean;
   mergeCurveSegments?: number;
   fontUrls?: Partial<Record<TextTraceFontKey | string, string>>;
@@ -57,6 +58,7 @@ type ResolvedTextTraceOptions = Required<
     | 'color'
     | 'verticalGuideOvershoot'
     | 'verticalGuideProbability'
+    | 'guideExitExtension'
     | 'mergeOverlappingShapes'
     | 'mergeCurveSegments'
     | 'wawoff2Url'
@@ -116,6 +118,7 @@ const DEFAULT_OPTIONS: ResolvedTextTraceOptions = {
   timing: {},
   verticalGuideOvershoot: 28,
   verticalGuideProbability: 0.45,
+  guideExitExtension: 18,
   mergeOverlappingShapes: false,
   mergeCurveSegments: 12,
   fontUrls: TEXT_TRACE_FONT_URLS,
@@ -222,6 +225,7 @@ export class TextTrace implements TextTraceController {
     const timing = resolveTiming(this.options.timing);
     const verticalGuideOvershoot = Math.max(0, this.options.verticalGuideOvershoot);
     const verticalGuideProbability = clampProbability(this.options.verticalGuideProbability);
+    const guideExitExtension = Math.max(0, this.options.guideExitExtension);
 
     let font: Font;
     try {
@@ -289,24 +293,24 @@ export class TextTrace implements TextTraceController {
     }
 
     const topLine = this.el('path', {
-      d: makeLinePath(xL, topY, xR, topY),
+      d: makeLinePath(xL, topY, xR + guideExitExtension, topY),
       fill: 'none',
       stroke: GUIDE_COLOR,
       'stroke-width': 0.6,
       opacity: 0.55
     });
     this.svg.appendChild(topLine);
-    setupUnifiedWipe(topLine);
+    setupUnifiedWipe(topLine, getVisibleNorm(xR - xL, guideExitExtension));
 
     const bottomLine = this.el('path', {
-      d: makeLinePath(xR, bottomY, xL, bottomY),
+      d: makeLinePath(xR, bottomY, xL - guideExitExtension, bottomY),
       fill: 'none',
       stroke: GUIDE_COLOR,
       'stroke-width': 0.6,
       opacity: 0.55
     });
     this.svg.appendChild(bottomLine);
-    setupUnifiedWipe(bottomLine);
+    setupUnifiedWipe(bottomLine, getVisibleNorm(xR - xL, guideExitExtension));
 
     topLine.style.transition = `stroke-dashoffset ${timing.horizontalDuration}ms cubic-bezier(.5,.05,.2,1)`;
     bottomLine.style.transition = `stroke-dashoffset ${timing.horizontalDuration}ms cubic-bezier(.5,.05,.2,1)`;
@@ -329,14 +333,14 @@ export class TextTrace implements TextTraceController {
         if (Math.random() >= verticalGuideProbability) return;
 
         const guide = this.el('path', {
-          d: makeLinePath(vx, verticalGuideBottomY, vx, verticalGuideTopY),
+          d: makeLinePath(vx, verticalGuideBottomY, vx, verticalGuideTopY - guideExitExtension),
           fill: 'none',
           stroke: GUIDE_COLOR,
           'stroke-width': 0.5,
           opacity: 0.45
         });
         this.svg.appendChild(guide);
-        setupUnifiedWipe(guide);
+        setupUnifiedWipe(guide, getVisibleNorm(verticalGuideBottomY - verticalGuideTopY, guideExitExtension));
         guide.style.transition = `stroke-dashoffset ${timing.guideDuration}ms ease`;
         allCharGuides.push({ node: guide, eraseDur: timing.guideEraseDuration });
         this.later(runId, () => guide.setAttribute('stroke-dashoffset', '0'), timing.guideDelay + guideDelay);
@@ -346,15 +350,16 @@ export class TextTrace implements TextTraceController {
         const cx = (bbox.x1 + bbox.x2) / 2;
         const cy = (bbox.y1 + bbox.y2) / 2;
         const r = Math.max(bbox.x2 - bbox.x1, bbox.y2 - bbox.y1) / 2 + (charIsCJK ? 3 : 2);
+        const circumference = Math.PI * 2 * r;
         const circle = this.el('path', {
-          d: `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx} ${cy + r} A ${r} ${r} 0 1 1 ${cx} ${cy - r}`,
+          d: `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx} ${cy + r} A ${r} ${r} 0 1 1 ${cx} ${cy - r} L ${cx + guideExitExtension} ${cy - r}`,
           fill: 'none',
           stroke: GUIDE_COLOR,
           'stroke-width': 0.6,
           opacity: 0.5
         });
         this.svg.appendChild(circle);
-        setupUnifiedWipe(circle);
+        setupUnifiedWipe(circle, getVisibleNorm(circumference, guideExitExtension));
         circle.style.transition = `stroke-dashoffset ${timing.circleDuration}ms cubic-bezier(.5,.05,.2,1)`;
         allCharGuides.push({ node: circle, eraseDur: timing.circleEraseDuration });
         this.later(runId, () => circle.setAttribute('stroke-dashoffset', '0'), timing.circleDelay + guideDelay);
@@ -543,6 +548,7 @@ function mergeOptions(base: ResolvedTextTraceOptions, options: TextTraceOptions)
     },
     verticalGuideOvershoot: options.verticalGuideOvershoot ?? base.verticalGuideOvershoot,
     verticalGuideProbability: options.verticalGuideProbability ?? base.verticalGuideProbability,
+    guideExitExtension: options.guideExitExtension ?? base.guideExitExtension,
     mergeOverlappingShapes: options.mergeOverlappingShapes ?? base.mergeOverlappingShapes,
     mergeCurveSegments: options.mergeCurveSegments ?? base.mergeCurveSegments,
     wawoff2Url: options.wawoff2Url ?? base.wawoff2Url,
@@ -841,10 +847,15 @@ function formatNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
 }
 
-function setupUnifiedWipe(node: SVGPathElement): void {
+function getVisibleNorm(visibleLength: number, exitExtension: number): number {
+  if (visibleLength <= 0) return NORM_LEN;
+  return (visibleLength / (visibleLength + exitExtension)) * NORM_LEN;
+}
+
+function setupUnifiedWipe(node: SVGPathElement, visibleNorm = NORM_LEN): void {
   node.setAttribute('pathLength', String(NORM_LEN));
-  node.setAttribute('stroke-dasharray', `${NORM_LEN} ${NORM_LEN * 2}`);
-  node.setAttribute('stroke-dashoffset', String(NORM_LEN));
+  node.setAttribute('stroke-dasharray', `${visibleNorm} ${NORM_LEN * 2}`);
+  node.setAttribute('stroke-dashoffset', String(visibleNorm));
 }
 
 function makeLinePath(x1: number, y1: number, x2: number, y2: number): string {

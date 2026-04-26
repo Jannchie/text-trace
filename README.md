@@ -38,6 +38,7 @@ createTextTrace(svg, {
   },
   verticalGuideOvershoot: 28,
   verticalGuideProbability: 0.45,
+  guideExitExtension: 18,
   mergeOverlappingShapes: true
 });
 ```

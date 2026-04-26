@@ -34,6 +34,10 @@ export const TextTrace = defineComponent({
       type: Number,
       default: 0.45
     },
+    guideExitExtension: {
+      type: Number,
+      default: 18
+    },
     mergeOverlappingShapes: {
       type: Boolean,
       default: false
@@ -67,6 +71,7 @@ export const TextTrace = defineComponent({
       timing: props.timing,
       verticalGuideOvershoot: props.verticalGuideOvershoot,
       verticalGuideProbability: props.verticalGuideProbability,
+      guideExitExtension: props.guideExitExtension,
       mergeOverlappingShapes: props.mergeOverlappingShapes,
       mergeCurveSegments: props.mergeCurveSegments,
       fontUrls: props.fontUrls,
@@ -94,6 +99,7 @@ export const TextTrace = defineComponent({
         props.timing,
         props.verticalGuideOvershoot,
         props.verticalGuideProbability,
+        props.guideExitExtension,
         props.mergeOverlappingShapes,
         props.mergeCurveSegments,
         props.fontUrls,
