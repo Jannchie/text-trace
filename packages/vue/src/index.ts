@@ -46,6 +46,14 @@ export const TextTrace = defineComponent({
       type: Number,
       default: 12
     },
+    fontSource: {
+      type: [String, Object, Function] as PropType<TextTraceOptions['fontSource']>,
+      default: undefined
+    },
+    fontSources: {
+      type: Object as PropType<TextTraceOptions['fontSources']>,
+      default: undefined
+    },
     fontUrls: {
       type: Object as PropType<TextTraceOptions['fontUrls']>,
       default: undefined
@@ -53,6 +61,18 @@ export const TextTrace = defineComponent({
     wawoff2Url: {
       type: String,
       default: undefined
+    },
+    wawoff2: {
+      type: [Object, Function] as PropType<TextTraceOptions['wawoff2']>,
+      default: undefined
+    },
+    ariaLabel: {
+      type: String,
+      default: undefined
+    },
+    decorative: {
+      type: Boolean,
+      default: false
     }
   },
   emits: {
@@ -74,8 +94,13 @@ export const TextTrace = defineComponent({
       verticalGuideProbability: props.verticalGuideProbability,
       mergeOverlappingShapes: props.mergeOverlappingShapes,
       mergeCurveSegments: props.mergeCurveSegments,
+      fontSource: props.fontSource,
+      fontSources: props.fontSources,
       fontUrls: props.fontUrls,
       wawoff2Url: props.wawoff2Url,
+      wawoff2: props.wawoff2,
+      ariaLabel: props.ariaLabel ?? readAttrAriaLabel(attrs),
+      decorative: props.decorative,
       onPhaseChange: (phase) => emit('phase-change', phase)
     });
 
@@ -102,8 +127,13 @@ export const TextTrace = defineComponent({
         props.verticalGuideProbability,
         props.mergeOverlappingShapes,
         props.mergeCurveSegments,
+        props.fontSource,
+        props.fontSources,
         props.fontUrls,
-        props.wawoff2Url
+        props.wawoff2Url,
+        props.wawoff2,
+        props.ariaLabel,
+        props.decorative
       ],
       render,
       { deep: true }
@@ -114,19 +144,34 @@ export const TextTrace = defineComponent({
       controller = undefined;
     });
 
-    return () => h('svg', mergeProps({
-      ref: (element) => {
-        svg = element instanceof SVGSVGElement ? element : undefined;
-      },
-      viewBox: TEXT_TRACE_VIEW_BOX,
-      xmlns: 'http://www.w3.org/2000/svg',
-      style: {
-        width: '100%',
-        height: 'auto',
-        transition: 'transform 600ms cubic-bezier(.5,.05,.2,1)'
-      }
-    }, attrs));
+    return () => {
+      const accessibleLabel = resolveAccessibleLabel(props.ariaLabel ?? readAttrAriaLabel(attrs), props.text);
+      return h('svg', mergeProps({
+        ref: (element) => {
+          svg = element instanceof SVGSVGElement ? element : undefined;
+        },
+        viewBox: TEXT_TRACE_VIEW_BOX,
+        xmlns: 'http://www.w3.org/2000/svg',
+        role: props.decorative ? undefined : 'img',
+        'aria-label': props.decorative ? undefined : accessibleLabel,
+        'aria-hidden': props.decorative ? 'true' : undefined,
+        style: {
+          width: '100%',
+          height: 'auto',
+          transition: 'transform 600ms cubic-bezier(.5,.05,.2,1)'
+        }
+      }, attrs), props.decorative ? undefined : [h('title', accessibleLabel)]);
+    };
   }
 });
+
+function readAttrAriaLabel(attrs: Record<string, unknown>): string | undefined {
+  const label = attrs['aria-label'];
+  return typeof label === 'string' ? label : undefined;
+}
+
+function resolveAccessibleLabel(label: string | undefined, text: string): string {
+  return label?.trim() || text || 'Hello, world!';
+}
 
 export default TextTrace;

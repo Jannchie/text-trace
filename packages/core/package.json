@@ -1,6 +1,7 @@
 {
   "name": "@text-trace/core",
   "version": "0.1.0",
+  "description": "Framework-agnostic SVG text tracing animation.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -15,6 +16,15 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jannchie/text-trace.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/Jannchie/text-trace#readme",
+  "bugs": {
+    "url": "https://github.com/Jannchie/text-trace/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

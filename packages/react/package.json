@@ -1,6 +1,7 @@
 {
   "name": "@text-trace/react",
   "version": "0.1.0",
+  "description": "React component for SVG text tracing animation.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -13,6 +14,15 @@
     }
   },
   "files": ["dist"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jannchie/text-trace.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://github.com/Jannchie/text-trace#readme",
+  "bugs": {
+    "url": "https://github.com/Jannchie/text-trace/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

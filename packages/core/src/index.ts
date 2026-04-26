@@ -1,9 +1,17 @@
 import opentype from 'opentype.js';
-import { union } from 'polygon-clipping';
+import polygonClipping from 'polygon-clipping';
 import type { BoundingBox, Font, Path } from 'opentype.js';
 import type { MultiPolygon, Polygon, Ring } from 'polygon-clipping';
 
+const { union } = polygonClipping;
+
 export type TextTraceFontKey = 'inter' | 'garamond' | 'noto-sc' | 'noto-jp';
+export type TextTraceFontData = string | ArrayBuffer | Uint8Array | Font;
+export type TextTraceFontSource = TextTraceFontData | (() => TextTraceFontData | Promise<TextTraceFontData>);
+export type TextTraceWawoff2Source =
+  | TextTraceWawoff2Module
+  | Promise<TextTraceWawoff2Module>
+  | (() => TextTraceWawoff2Module | Promise<TextTraceWawoff2Module>);
 
 export interface TextTraceTiming {
   horizontal?: number;
@@ -24,9 +32,34 @@ export interface TextTraceOptions {
   verticalGuideProbability?: number;
   mergeOverlappingShapes?: boolean;
   mergeCurveSegments?: number;
+  fontSource?: TextTraceFontSource;
+  fontSources?: Partial<Record<TextTraceFontKey | string, TextTraceFontSource>>;
   fontUrls?: Partial<Record<TextTraceFontKey | string, string>>;
   wawoff2Url?: string;
+  wawoff2?: TextTraceWawoff2Source;
+  ariaLabel?: string | null;
+  decorative?: boolean;
   onPhaseChange?: (phase: string) => void;
+}
+
+export interface TextTracePathItem {
+  index: number;
+  text: string;
+  d: string;
+  bbox: {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  };
+  fillRule?: 'evenodd';
+}
+
+export interface TextTracePathResult {
+  viewBox: string;
+  width: number;
+  height: number;
+  paths: TextTracePathItem[];
 }
 
 export interface TextTraceController {
@@ -48,11 +81,14 @@ type ResolvedTextTraceOptions = Required<
     | 'verticalGuideProbability'
     | 'mergeOverlappingShapes'
     | 'mergeCurveSegments'
-    | 'wawoff2Url'
+    | 'decorative'
   >
 > & {
   timing: TextTraceTiming;
-  fontUrls: Record<string, string>;
+  fontSources: Record<string, TextTraceFontSource>;
+  wawoff2Url?: string;
+  wawoff2?: TextTraceWawoff2Source;
+  ariaLabel: string | null;
   onPhaseChange?: (phase: string) => void;
 };
 
@@ -76,14 +112,14 @@ interface ResolvedTextTraceTiming {
   horizontalEraseDuration: number;
 }
 
-interface Wawoff2Module {
-  decompress?: (input: Uint8Array) => Uint8Array;
+export interface TextTraceWawoff2Module {
+  decompress?: (input: Uint8Array) => Uint8Array | false | Promise<Uint8Array | false>;
   onRuntimeInitialized?: () => void;
 }
 
 declare global {
   interface Window {
-    Module?: Wawoff2Module;
+    Module?: TextTraceWawoff2Module;
   }
 }
 
@@ -108,6 +144,7 @@ export const TEXT_TRACE_FONT_URLS: Record<TextTraceFontKey, string> = {
   'noto-sc': 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.2.9/files/noto-sans-sc-chinese-simplified-400-normal.woff2',
   'noto-jp': 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@5.0.14/files/noto-sans-jp-japanese-400-normal.woff2'
 };
+export const TEXT_TRACE_CDN_FONT_URLS = TEXT_TRACE_FONT_URLS;
 
 const DEFAULT_OPTIONS: ResolvedTextTraceOptions = {
   text: DEFAULT_TEXT,
@@ -120,8 +157,10 @@ const DEFAULT_OPTIONS: ResolvedTextTraceOptions = {
   verticalGuideProbability: 0.45,
   mergeOverlappingShapes: false,
   mergeCurveSegments: 12,
-  fontUrls: TEXT_TRACE_FONT_URLS,
-  wawoff2Url: DEFAULT_WAWOFF2_URL
+  fontSources: TEXT_TRACE_FONT_URLS,
+  wawoff2Url: DEFAULT_WAWOFF2_URL,
+  ariaLabel: null,
+  decorative: false
 };
 
 const DEFAULT_TIMING: Required<TextTraceTiming> = {
@@ -147,44 +186,79 @@ const TIMING_RATIOS = {
 };
 
 const fontCache = new Map<string, Font>();
-const wawoff2Loaders = new Map<string, Promise<Wawoff2Module>>();
+const objectFontCache = new WeakMap<object, Font>();
+const wawoff2Loaders = new Map<string, Promise<TextTraceWawoff2Module>>();
 
 export async function loadTextTraceFont(
   fontKey: string,
-  fontUrls: Record<string, string> = TEXT_TRACE_FONT_URLS,
-  wawoff2Url = DEFAULT_WAWOFF2_URL
+  fontSources: Record<string, TextTraceFontSource> = TEXT_TRACE_FONT_URLS,
+  wawoff2Url = DEFAULT_WAWOFF2_URL,
+  wawoff2?: TextTraceWawoff2Source
 ): Promise<Font> {
-  const url = fontUrls[fontKey];
-  if (!url) {
+  const source = fontSources[fontKey];
+  if (!source) {
     throw new Error(`Unknown font: ${fontKey}`);
   }
 
-  const cacheKey = `${fontKey}:${url}`;
-  const cached = fontCache.get(cacheKey);
-  if (cached) return cached;
+  const resolvedSource = await resolveFontSource(source);
+  if (isOpenTypeFont(resolvedSource)) return resolvedSource;
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Font request failed: ${response.status}`);
+  const objectCacheKey = typeof resolvedSource === 'object' ? resolvedSource : undefined;
+  if (objectCacheKey) {
+    const cached = objectFontCache.get(objectCacheKey);
+    if (cached) return cached;
   }
 
-  const buffer = await response.arrayBuffer();
-  let parsedBuffer = buffer;
+  const cacheKey = typeof resolvedSource === 'string' ? `${fontKey}:${resolvedSource}` : undefined;
+  const cached = cacheKey ? fontCache.get(cacheKey) : undefined;
+  if (cached) return cached;
 
-  if (/\.woff2(?:$|\?)/.test(url)) {
-    const module = await ensureWawoff2(wawoff2Url);
+  const buffer = await loadFontBuffer(resolvedSource);
+  let parsedBuffer: ArrayBuffer = buffer;
+
+  if (isWoff2Buffer(buffer)) {
+    const module = await ensureWawoff2(wawoff2Url, wawoff2);
     if (!module.decompress) {
       throw new Error('wawoff2 initialized without decompress');
     }
-    const decompressed = module.decompress(new Uint8Array(buffer));
+    const decompressed = await module.decompress(new Uint8Array(buffer));
+    if (decompressed === false) {
+      throw new Error('wawoff2 failed to decompress font');
+    }
     const fontBuffer = new ArrayBuffer(decompressed.byteLength);
     new Uint8Array(fontBuffer).set(decompressed);
     parsedBuffer = fontBuffer;
   }
 
   const font = opentype.parse(parsedBuffer);
-  fontCache.set(cacheKey, font);
+  if (cacheKey) fontCache.set(cacheKey, font);
+  if (objectCacheKey) objectFontCache.set(objectCacheKey, font);
   return font;
+}
+
+export async function getTextTracePaths(options: TextTraceOptions = {}): Promise<TextTracePathResult> {
+  const resolved = mergeOptions(DEFAULT_OPTIONS, options);
+  const text = resolved.text || DEFAULT_TEXT;
+  const font = await loadTextTraceFont(resolved.fontKey, resolved.fontSources, resolved.wawoff2Url, resolved.wawoff2);
+  const layout = layoutText(font, text);
+
+  return {
+    viewBox: layout.viewBox,
+    width: layout.viewBoxWidth,
+    height: layout.viewBoxHeight,
+    paths: layout.visibleItems.map((item) => ({
+      index: item.index,
+      text: item.ch,
+      d: getGlyphPathData(item.path, resolved),
+      bbox: {
+        x1: item.bbox.x1,
+        y1: item.bbox.y1,
+        x2: item.bbox.x2,
+        y2: item.bbox.y2
+      },
+      fillRule: resolved.mergeOverlappingShapes ? 'evenodd' : undefined
+    }))
+  };
 }
 
 export function createTextTrace(svg: SVGSVGElement, options: TextTraceOptions = {}): TextTraceController {
@@ -201,6 +275,7 @@ export class TextTrace implements TextTraceController {
     this.options = mergeOptions(DEFAULT_OPTIONS, options);
     this.svg.setAttribute('viewBox', TEXT_TRACE_VIEW_BOX);
     this.svg.setAttribute('xmlns', SVG_NS);
+    this.applyAccessibility(this.options.text);
   }
 
   async render(options: TextTraceOptions = {}): Promise<void> {
@@ -214,16 +289,16 @@ export class TextTrace implements TextTraceController {
     this.setPhase('');
 
     const text = this.options.text || DEFAULT_TEXT;
-    const chars = Array.from(text);
     const timing = resolveTiming(this.options.duration, this.options.timing);
     const verticalGuideOvershoot = Math.max(0, this.options.verticalGuideOvershoot);
     const verticalGuideProbability = clampProbability(this.options.verticalGuideProbability);
     const guideTailLength = GUIDE_TAIL_LENGTH;
+    this.applyAccessibility(text);
 
     let font: Font;
     try {
       this.setPhase('Loading font...');
-      font = await loadTextTraceFont(this.options.fontKey, this.options.fontUrls, this.options.wawoff2Url);
+      font = await loadTextTraceFont(this.options.fontKey, this.options.fontSources, this.options.wawoff2Url, this.options.wawoff2);
     } catch (error) {
       this.setPhase(`Font load failed: ${error instanceof Error ? error.message : String(error)}`);
       return;
@@ -231,54 +306,11 @@ export class TextTrace implements TextTraceController {
 
     if (!this.isCurrent(runId)) return;
 
-    const hasCJK = chars.some(isCJK);
-    const fontSize = hasCJK ? 110 : 140;
-    const upm = font.unitsPerEm;
-    const ascender = (font.ascender / upm) * fontSize;
-
-    let totalWidth = 0;
-    for (const ch of chars) {
-      const glyph = font.charToGlyph(ch);
-      totalWidth += ((glyph.advanceWidth ?? upm) / upm) * fontSize;
-    }
-
-    const guidePadX = 24;
-    const viewBoxWidth = Math.max(WIDTH, totalWidth + (guidePadX + VIEW_BOX_PAD_X) * 2);
-    const viewBoxHeight = HEIGHT + VIEW_BOX_PAD_Y * 2;
-    this.svg.setAttribute('viewBox', `0 ${-VIEW_BOX_PAD_Y} ${viewBoxWidth} ${viewBoxHeight}`);
-
-    const startX = (viewBoxWidth - totalWidth) / 2;
-    const baselineY = hasCJK ? 165 : 175;
-    const metricTopY = baselineY - ascender;
-    let cursorX = startX;
-    const glyphItems = chars.map((ch, index) => {
-      const glyph = font.charToGlyph(ch);
-      const advance = ((glyph.advanceWidth ?? upm) / upm) * fontSize;
-      const path = glyph.getPath(cursorX, baselineY, fontSize);
-      const bbox = path.getBoundingBox();
-      const charIsCJK = isCJK(ch);
-      const item = {
-        index,
-        ch,
-        path,
-        bbox,
-        charIsCJK,
-        wantCircle: shouldHaveCircle(ch, index, charIsCJK)
-      };
-      cursorX += advance;
-      return item;
-    });
-    const visibleBBoxes = glyphItems.map((item) => item.bbox).filter(isFiniteBoundingBox);
-    const topY = visibleBBoxes.length > 0
-      ? Math.min(...visibleBBoxes.map((bbox) => bbox.y1)) - HORIZONTAL_GUIDE_PAD_Y
-      : metricTopY;
-    const bottomY = baselineY;
-
-    const xL = startX - guidePadX;
-    const xR = startX + totalWidth + guidePadX;
+    const layout = layoutText(font, text);
+    this.svg.setAttribute('viewBox', layout.viewBox);
 
     const topLine = this.el('path', {
-      d: makeLinePath(xL, topY, xR + guideTailLength, topY),
+      d: makeLinePath(layout.xL, layout.topY, layout.xR + guideTailLength, layout.topY),
       fill: 'none',
       stroke: this.options.guideColor,
       'stroke-width': 0.6,
@@ -288,7 +320,7 @@ export class TextTrace implements TextTraceController {
     setupUnifiedWipe(topLine);
 
     const bottomLine = this.el('path', {
-      d: makeLinePath(xR, bottomY, xL - guideTailLength, bottomY),
+      d: makeLinePath(layout.xR, layout.bottomY, layout.xL - guideTailLength, layout.bottomY),
       fill: 'none',
       stroke: this.options.guideColor,
       'stroke-width': 0.6,
@@ -307,10 +339,9 @@ export class TextTrace implements TextTraceController {
 
     const allCharGuides: Array<{ node: SVGPathElement; eraseDur: number }> = [];
 
-    const visibleItems = glyphItems.filter((item) => isFiniteBoundingBox(item.bbox));
-    const firstVisibleIndex = visibleItems[0]?.index ?? -1;
+    const firstVisibleIndex = layout.visibleItems[0]?.index ?? -1;
 
-    visibleItems.forEach(({ index, path, bbox, charIsCJK, wantCircle }) => {
+    layout.visibleItems.forEach(({ index, path, bbox, charIsCJK, wantCircle }) => {
 
       const guideDelay = index * timing.guideStagger;
       const strokeDelay = index * timing.strokeStagger;
@@ -352,9 +383,7 @@ export class TextTrace implements TextTraceController {
         this.later(runId, () => circle.setAttribute('stroke-dashoffset', '0'), timing.circleDelay + guideDelay);
       }
 
-      const d = this.options.mergeOverlappingShapes
-        ? mergeOverlappingPathData(path, this.options.mergeCurveSegments)
-        : path.toPathData(2);
+      const d = getGlyphPathData(path, this.options);
       const charAttrs: Record<string, string | number> = {
         d,
         fill: this.options.textColor,
@@ -407,7 +436,7 @@ export class TextTrace implements TextTraceController {
 
     this.later(runId, () => {
       this.setPhase('Done');
-    }, getDoneDelay(timing, chars.length));
+    }, getDoneDelay(timing, layout.charCount));
   }
 
   update(options: TextTraceOptions): Promise<void> {
@@ -452,16 +481,44 @@ export class TextTrace implements TextTraceController {
     this.options.onPhaseChange?.(phase);
   }
 
+  private applyAccessibility(text: string): void {
+    removeSvgTitles(this.svg);
+
+    if (this.options.decorative) {
+      this.svg.setAttribute('aria-hidden', 'true');
+      this.svg.removeAttribute('aria-label');
+      this.svg.removeAttribute('role');
+      return;
+    }
+
+    const label = resolveAccessibleLabel(this.options.ariaLabel, text);
+    this.svg.removeAttribute('aria-hidden');
+    this.svg.setAttribute('role', 'img');
+    this.svg.setAttribute('aria-label', label);
+
+    const title = this.el('title', {});
+    title.textContent = label;
+    this.svg.appendChild(title);
+  }
+
   private isCurrent(runId: number): boolean {
     return !this.destroyed && runId === this.runId;
   }
 }
 
-function ensureWawoff2(url: string): Promise<Wawoff2Module> {
+function ensureWawoff2(
+  url: string | undefined,
+  source?: TextTraceWawoff2Source
+): Promise<TextTraceWawoff2Module> {
+  if (source) return resolveWawoff2Source(source);
+  if (!url) {
+    return Promise.reject(new Error('wawoff2Url or wawoff2 is required for WOFF2 fonts'));
+  }
+
   const existing = wawoff2Loaders.get(url);
   if (existing) return existing;
 
-  const loader = new Promise<Wawoff2Module>((resolve, reject) => {
+  const loader = new Promise<TextTraceWawoff2Module>((resolve, reject) => {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       reject(new Error('wawoff2 requires a browser environment'));
       return;
@@ -495,11 +552,13 @@ function ensureWawoff2(url: string): Promise<Wawoff2Module> {
 }
 
 function mergeOptions(base: ResolvedTextTraceOptions, options: TextTraceOptions): ResolvedTextTraceOptions {
+  const fontKey = options.fontKey ?? base.fontKey;
+
   return {
     ...base,
     ...options,
     text: options.text ?? base.text,
-    fontKey: options.fontKey ?? base.fontKey,
+    fontKey,
     textColor: options.textColor ?? base.textColor,
     guideColor: options.guideColor ?? base.guideColor,
     duration: options.duration ?? base.duration,
@@ -512,20 +571,172 @@ function mergeOptions(base: ResolvedTextTraceOptions, options: TextTraceOptions)
     mergeOverlappingShapes: options.mergeOverlappingShapes ?? base.mergeOverlappingShapes,
     mergeCurveSegments: options.mergeCurveSegments ?? base.mergeCurveSegments,
     wawoff2Url: options.wawoff2Url ?? base.wawoff2Url,
-    fontUrls: mergeFontUrls(base.fontUrls, options.fontUrls),
+    wawoff2: options.wawoff2 ?? base.wawoff2,
+    fontSources: mergeFontSources(base.fontSources, fontKey, options.fontSource, options.fontSources, options.fontUrls),
+    ariaLabel: options.ariaLabel !== undefined ? options.ariaLabel : base.ariaLabel,
+    decorative: options.decorative ?? base.decorative,
     onPhaseChange: options.onPhaseChange ?? base.onPhaseChange
   };
 }
 
-function mergeFontUrls(
-  base: Record<string, string>,
-  override: TextTraceOptions['fontUrls']
-): Record<string, string> {
+function mergeFontSources(
+  base: Record<string, TextTraceFontSource>,
+  fontKey: string,
+  fontSource: TextTraceOptions['fontSource'],
+  overrideSources: TextTraceOptions['fontSources'],
+  overrideUrls: TextTraceOptions['fontUrls']
+): Record<string, TextTraceFontSource> {
   const merged = { ...base };
-  Object.entries(override ?? {}).forEach(([key, value]) => {
+  if (fontSource) merged[fontKey] = fontSource;
+  Object.entries(overrideSources ?? {}).forEach(([key, value]) => {
+    if (value) merged[key] = value;
+  });
+  Object.entries(overrideUrls ?? {}).forEach(([key, value]) => {
     if (value) merged[key] = value;
   });
   return merged;
+}
+
+interface TextTraceLayoutItem {
+  index: number;
+  ch: string;
+  path: Path;
+  bbox: BoundingBox;
+  charIsCJK: boolean;
+  wantCircle: boolean;
+}
+
+interface TextTraceLayout {
+  viewBox: string;
+  viewBoxWidth: number;
+  viewBoxHeight: number;
+  charCount: number;
+  topY: number;
+  bottomY: number;
+  xL: number;
+  xR: number;
+  visibleItems: TextTraceLayoutItem[];
+}
+
+async function resolveFontSource(source: TextTraceFontSource): Promise<TextTraceFontData> {
+  return typeof source === 'function' ? source() : source;
+}
+
+async function resolveWawoff2Source(source: TextTraceWawoff2Source): Promise<TextTraceWawoff2Module> {
+  return typeof source === 'function' ? source() : source;
+}
+
+async function loadFontBuffer(source: Exclude<TextTraceFontData, Font>): Promise<ArrayBuffer> {
+  if (typeof source === 'string') {
+    const response = await fetch(source);
+    if (!response.ok) {
+      throw new Error(`Font request failed: ${response.status}`);
+    }
+    return response.arrayBuffer();
+  }
+
+  if (source instanceof ArrayBuffer) {
+    return source.slice(0);
+  }
+
+  const copy = new Uint8Array(source.byteLength);
+  copy.set(source);
+  return copy.buffer;
+}
+
+function isOpenTypeFont(source: TextTraceFontData): source is Font {
+  return typeof source === 'object' &&
+    source !== null &&
+    'charToGlyph' in source &&
+    'unitsPerEm' in source;
+}
+
+function isWoff2Buffer(buffer: ArrayBuffer): boolean {
+  const signature = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 4));
+  return signature[0] === 0x77 &&
+    signature[1] === 0x4f &&
+    signature[2] === 0x46 &&
+    signature[3] === 0x32;
+}
+
+function layoutText(font: Font, text: string): TextTraceLayout {
+  const chars = Array.from(text);
+  const hasCJK = chars.some(isCJK);
+  const fontSize = hasCJK ? 110 : 140;
+  const upm = font.unitsPerEm;
+  const ascender = (font.ascender / upm) * fontSize;
+
+  let totalWidth = 0;
+  for (const ch of chars) {
+    const glyph = font.charToGlyph(ch);
+    totalWidth += ((glyph.advanceWidth ?? upm) / upm) * fontSize;
+  }
+
+  const guidePadX = 24;
+  const viewBoxWidth = Math.max(WIDTH, totalWidth + (guidePadX + VIEW_BOX_PAD_X) * 2);
+  const viewBoxHeight = HEIGHT + VIEW_BOX_PAD_Y * 2;
+  const viewBox = `0 ${-VIEW_BOX_PAD_Y} ${viewBoxWidth} ${viewBoxHeight}`;
+
+  const startX = (viewBoxWidth - totalWidth) / 2;
+  const baselineY = hasCJK ? 165 : 175;
+  const metricTopY = baselineY - ascender;
+  let cursorX = startX;
+
+  const glyphItems = chars.map((ch, index) => {
+    const glyph = font.charToGlyph(ch);
+    const advance = ((glyph.advanceWidth ?? upm) / upm) * fontSize;
+    const path = glyph.getPath(cursorX, baselineY, fontSize);
+    const bbox = path.getBoundingBox();
+    const charIsCJK = isCJK(ch);
+    const item = {
+      index,
+      ch,
+      path,
+      bbox,
+      charIsCJK,
+      wantCircle: shouldHaveCircle(ch, index, charIsCJK)
+    };
+    cursorX += advance;
+    return item;
+  });
+
+  const visibleItems = glyphItems.filter((item) => isFiniteBoundingBox(item.bbox));
+  const visibleBBoxes = visibleItems.map((item) => item.bbox);
+  const topY = visibleBBoxes.length > 0
+    ? Math.min(...visibleBBoxes.map((bbox) => bbox.y1)) - HORIZONTAL_GUIDE_PAD_Y
+    : metricTopY;
+  const bottomY = baselineY;
+
+  return {
+    viewBox,
+    viewBoxWidth,
+    viewBoxHeight,
+    charCount: chars.length,
+    topY,
+    bottomY,
+    xL: startX - guidePadX,
+    xR: startX + totalWidth + guidePadX,
+    visibleItems
+  };
+}
+
+function getGlyphPathData(path: Path, options: ResolvedTextTraceOptions): string {
+  return options.mergeOverlappingShapes
+    ? mergeOverlappingPathData(path, options.mergeCurveSegments)
+    : path.toPathData(2);
+}
+
+function resolveAccessibleLabel(ariaLabel: string | null, text: string): string {
+  const label = ariaLabel ?? text;
+  return label.trim() || DEFAULT_TEXT;
+}
+
+function removeSvgTitles(svg: SVGSVGElement): void {
+  Array.from(svg.children).forEach((child) => {
+    if (child.tagName.toLowerCase() === 'title') {
+      child.remove();
+    }
+  });
 }
 
 function resolveTiming(duration: number, timing: TextTraceTiming): ResolvedTextTraceTiming {
