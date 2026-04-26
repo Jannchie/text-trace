@@ -1,0 +1,139 @@
+:root {
+  color: #111827;
+  background: #f8fafc;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.page-shell {
+  width: min(1180px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 24px 0;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.toolbar label {
+  display: grid;
+  gap: 5px;
+}
+
+.toolbar .checkbox-label {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  gap: 7px;
+}
+
+.toolbar span {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.toolbar input,
+.toolbar select {
+  min-width: 150px;
+  height: 36px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: #ffffff;
+  color: #111827;
+}
+
+.toolbar input[type="number"] {
+  min-width: 120px;
+}
+
+.toolbar input[type="checkbox"] {
+  min-width: auto;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  accent-color: #1d4ed8;
+}
+
+.toolbar button {
+  height: 36px;
+  border: 1px solid #1d4ed8;
+  border-radius: 6px;
+  padding: 0 14px;
+  background: #1d4ed8;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.preview-panel {
+  margin-top: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.preview-panel header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.preview-panel h1,
+.preview-panel p {
+  margin: 0;
+}
+
+.preview-panel h1 {
+  font-size: 14px;
+}
+
+.preview-panel p {
+  min-height: 16px;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  text-align: right;
+}
+
+.stage {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #f1f5f9;
+  padding: 18px 12px;
+}
+
+.trace-svg {
+  width: 100%;
+  height: auto;
+  color: #111827;
+  transition: transform 600ms cubic-bezier(.5,.05,.2,1);
+}

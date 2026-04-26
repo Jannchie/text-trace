@@ -1,0 +1,19 @@
+{
+  "name": "text-trace-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter @text-trace/core build && pnpm --filter @text-trace/vue build && pnpm --filter @text-trace/react build && pnpm --filter text-trace-playground build",
+    "check": "pnpm -r --if-present check",
+    "dev": "pnpm --filter text-trace-playground dev",
+    "playground": "pnpm --filter text-trace-playground dev"
+  },
+  "devDependencies": {
+    "@types/opentype.js": "^1.3.9",
+    "@types/react": "^19.2.14",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10"
+  }
+}

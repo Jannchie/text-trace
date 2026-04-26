@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["DOM", "ES2020"],
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "ignoreDeprecations": "6.0",
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@text-trace/core": ["packages/core/src/index.ts"],
+      "@text-trace/vue": ["packages/vue/src/index.ts"],
+      "@text-trace/react": ["packages/react/src/index.tsx"]
+    }
+  }
+}
