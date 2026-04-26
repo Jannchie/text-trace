@@ -1,7 +1,21 @@
 :root {
-  color: #111827;
-  background: #f8fafc;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-soft: #475569;
+  --text-muted: #64748b;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.12);
+  --code-bg: #f8fafc;
+  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+
+  color: var(--text);
+  background: var(--bg);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
@@ -10,130 +24,323 @@
 
 body {
   margin: 0;
+  min-height: 100vh;
 }
 
 button,
 input,
 select {
   font: inherit;
+  color: inherit;
 }
 
-.page-shell {
-  width: min(1180px, calc(100vw - 32px));
-  margin: 0 auto;
-  padding: 24px 0;
-}
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: end;
-  padding: 12px;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.toolbar label {
-  display: grid;
-  gap: 5px;
-}
-
-.toolbar .checkbox-label {
-  display: flex;
-  height: 36px;
-  align-items: center;
-  gap: 7px;
-}
-
-.toolbar span {
-  color: #475569;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.toolbar input,
-.toolbar select {
-  min-width: 150px;
-  height: 36px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  padding: 0 10px;
-  background: #ffffff;
-  color: #111827;
-}
-
-.toolbar input[type="number"] {
-  min-width: 120px;
-}
-
-.toolbar input[type="checkbox"] {
-  min-width: auto;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  border: 0;
-  accent-color: #1d4ed8;
-}
-
-.toolbar button {
-  height: 36px;
-  border: 1px solid #1d4ed8;
-  border-radius: 6px;
-  padding: 0 14px;
-  background: #1d4ed8;
-  color: #ffffff;
+button {
   cursor: pointer;
 }
 
-.preview-panel {
-  margin-top: 12px;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
-  background: #ffffff;
-  overflow: hidden;
+/* ───────────── App shell ───────────── */
+.app {
+  width: min(1200px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.preview-panel header {
+/* ───────────── Header ───────────── */
+.app-header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  align-items: baseline;
-  padding: 10px 12px;
-  border-bottom: 1px solid #e2e8f0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
 }
 
-.preview-panel h1,
-.preview-panel p {
+.app-header h1 {
   margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
-.preview-panel h1 {
-  font-size: 14px;
+.app-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
-.preview-panel p {
-  min-height: 16px;
-  color: #64748b;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+.app-header code {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.phase {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+#replay-button {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 550;
+  transition: filter 120ms ease;
+}
+
+#replay-button:hover {
+  filter: brightness(1.08);
+}
+
+#replay-button:active {
+  filter: brightness(0.94);
+}
+
+/* ───────────── Body layout ───────────── */
+.app-body {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 920px) {
+  .app-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ───────────── Controls ───────────── */
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.controls fieldset {
+  margin: 0;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.controls legend {
+  padding: 0 4px;
   font-size: 11px;
-  text-align: right;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.controls label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.controls label.wide {
+  grid-column: 1 / -1;
+}
+
+.controls label > span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.controls input,
+.controls select {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.controls input:hover,
+.controls select:hover {
+  border-color: var(--border-strong);
+}
+
+.controls input:focus,
+.controls select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.controls select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2364748b' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+
+.controls label.checkbox {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.controls label.checkbox input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+/* ───────────── Content (preview + usage) ───────────── */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .stage {
   display: flex;
-  min-height: 220px;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  background: #f1f5f9;
-  padding: 18px 12px;
+  min-height: 320px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
 .trace-svg {
   width: 100%;
   height: auto;
-  color: #111827;
-  transition: transform 600ms cubic-bezier(.5,.05,.2,1);
+  max-height: 360px;
+  color: var(--text);
+  transition: transform 600ms cubic-bezier(0.5, 0.05, 0.2, 1);
+}
+
+/* ───────────── Usage / code tabs ───────────── */
+.usage {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.usage-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 6px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.usage-tabs button {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 550;
+  margin-bottom: -1px;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.usage-tabs button:hover {
+  color: var(--text);
+}
+
+.usage-tabs button[aria-selected="true"] {
+  color: var(--text);
+  background: var(--code-bg);
+  border-color: var(--border);
+}
+
+.usage-tabs .copy {
+  margin-left: auto;
+  height: 26px;
+  margin-bottom: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 550;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.usage-tabs .copy:hover {
+  background: var(--code-bg);
+  color: var(--text);
+}
+
+.usage-tabs .copy[data-state="copied"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.usage-code {
+  display: none;
+}
+
+.usage-code[data-active="true"] {
+  display: block;
+}
+
+.usage-code pre,
+.usage-code .shiki {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  tab-size: 2;
+}
+
+.usage-code .shiki code {
+  font-family: inherit;
 }

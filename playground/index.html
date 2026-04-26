@@ -6,78 +6,111 @@
     <title>Text Trace Playground</title>
   </head>
   <body>
-    <main class="page-shell">
-      <section class="toolbar" aria-label="Text trace controls">
-        <label>
-          <span>Text</span>
-          <input id="text-input" value="Hello, world!" maxlength="80" />
-        </label>
-        <label>
-          <span>Font</span>
-          <select id="font-select">
-            <option value="noto-sc" selected>Noto Sans SC</option>
-            <option value="noto-jp">Noto Sans JP</option>
-            <option value="inter">Inter</option>
-            <option value="garamond">EB Garamond</option>
-          </select>
-        </label>
-        <label>
-          <span>Drama</span>
-          <select id="drama-select">
-            <option value="none">No pause</option>
-            <option value="subtle" selected>Subtle</option>
-            <option value="dramatic">Dramatic</option>
-            <option value="cinematic">Cinematic</option>
-          </select>
-        </label>
-        <label>
-          <span>Horizontal delay</span>
-          <input id="horizontal-delay-input" type="number" min="0" step="50" value="0" />
-        </label>
-        <label>
-          <span>Guide delay</span>
-          <input id="guide-delay-input" type="number" min="0" step="50" value="100" />
-        </label>
-        <label>
-          <span>Stroke delay</span>
-          <input id="stroke-delay-input" type="number" min="0" step="50" value="400" />
-        </label>
-        <label>
-          <span>Fill delay</span>
-          <input id="fill-delay-input" type="number" min="0" step="50" value="800" />
-        </label>
-        <label>
-          <span>Erase delay</span>
-          <input id="erase-delay-input" type="number" min="0" step="50" value="1000" />
-        </label>
-        <label>
-          <span>Vertical overshoot</span>
-          <input id="vertical-overshoot-input" type="number" min="0" step="2" value="28" />
-        </label>
-        <label>
-          <span>Vertical probability</span>
-          <input id="vertical-probability-input" type="number" min="0" max="1" step="0.05" value="0.45" />
-        </label>
-        <label>
-          <span>Exit extension</span>
-          <input id="guide-exit-extension-input" type="number" min="0" step="2" value="18" />
-        </label>
-        <label class="checkbox-label">
-          <input id="merge-overlaps-input" type="checkbox" />
-          <span>Merge overlaps</span>
-        </label>
-        <button id="replay-button" type="button">Replay</button>
-      </section>
-
-      <section class="preview-panel" aria-label="Text trace preview">
-        <header>
-          <h1>Core Playground</h1>
-          <p id="phase-readout">Idle</p>
-        </header>
-        <div class="stage">
-          <svg id="trace-stage" class="trace-svg"></svg>
+    <main class="app">
+      <header class="app-header">
+        <div>
+          <h1>Text Trace</h1>
+          <p>Playground for <code>@text-trace/core</code></p>
         </div>
-      </section>
+        <div class="header-actions">
+          <span class="phase">
+            <span id="phase-readout">Idle</span>
+          </span>
+          <button id="replay-button" type="button">Replay</button>
+        </div>
+      </header>
+
+      <div class="app-body">
+        <aside class="controls" aria-label="Text trace controls">
+          <fieldset>
+            <legend>Content</legend>
+            <label class="wide">
+              <span>Text</span>
+              <input id="text-input" value="Hello, world!" maxlength="80" autocomplete="off" spellcheck="false" />
+            </label>
+            <label>
+              <span>Font</span>
+              <select id="font-select">
+                <option value="noto-sc" selected>Noto Sans SC</option>
+                <option value="noto-jp">Noto Sans JP</option>
+                <option value="inter">Inter</option>
+                <option value="garamond">EB Garamond</option>
+              </select>
+            </label>
+            <label>
+              <span>Drama</span>
+              <select id="drama-select">
+                <option value="none">No pause</option>
+                <option value="subtle" selected>Subtle</option>
+                <option value="dramatic">Dramatic</option>
+                <option value="cinematic">Cinematic</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Timing (ms)</legend>
+            <label>
+              <span>Horizontal</span>
+              <input id="horizontal-delay-input" type="number" min="0" step="50" value="0" />
+            </label>
+            <label>
+              <span>Guide</span>
+              <input id="guide-delay-input" type="number" min="0" step="50" value="100" />
+            </label>
+            <label>
+              <span>Stroke</span>
+              <input id="stroke-delay-input" type="number" min="0" step="50" value="400" />
+            </label>
+            <label>
+              <span>Fill</span>
+              <input id="fill-delay-input" type="number" min="0" step="50" value="800" />
+            </label>
+            <label>
+              <span>Erase</span>
+              <input id="erase-delay-input" type="number" min="0" step="50" value="1000" />
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Guides</legend>
+            <label>
+              <span>Vertical overshoot</span>
+              <input id="vertical-overshoot-input" type="number" min="0" step="2" value="28" />
+            </label>
+            <label>
+              <span>Vertical probability</span>
+              <input id="vertical-probability-input" type="number" min="0" max="1" step="0.05" value="0.45" />
+            </label>
+            <label>
+              <span>Exit extension</span>
+              <input id="guide-exit-extension-input" type="number" min="0" step="2" value="18" />
+            </label>
+            <label class="checkbox">
+              <input id="merge-overlaps-input" type="checkbox" />
+              <span>Merge overlapping shapes</span>
+            </label>
+          </fieldset>
+        </aside>
+
+        <section class="content">
+          <div class="stage" aria-label="Text trace preview">
+            <svg id="trace-stage" class="trace-svg"></svg>
+          </div>
+
+          <div class="usage">
+            <div class="usage-tabs" role="tablist">
+              <button type="button" role="tab" data-tab="ts" aria-selected="true">TypeScript</button>
+              <button type="button" role="tab" data-tab="vue" aria-selected="false">Vue</button>
+              <button type="button" role="tab" data-tab="react" aria-selected="false">React</button>
+              <button type="button" id="copy-button" class="copy" aria-label="Copy snippet">Copy</button>
+            </div>
+            <div class="usage-code" data-tab="ts" data-active="true" id="snippet-ts"></div>
+            <div class="usage-code" data-tab="vue" id="snippet-vue"></div>
+            <div class="usage-code" data-tab="react" id="snippet-react"></div>
+          </div>
+        </section>
+      </div>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
