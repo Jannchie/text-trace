@@ -307,7 +307,10 @@ export class TextTrace implements TextTraceController {
 
     const allCharGuides: Array<{ node: SVGPathElement; eraseDur: number }> = [];
 
-    glyphItems.forEach(({ index, path, bbox, charIsCJK, wantCircle }) => {
+    const visibleItems = glyphItems.filter((item) => isFiniteBoundingBox(item.bbox));
+    const firstVisibleIndex = visibleItems[0]?.index ?? -1;
+
+    visibleItems.forEach(({ index, path, bbox, charIsCJK, wantCircle }) => {
 
       const guideDelay = index * timing.guideStagger;
       const strokeDelay = index * timing.strokeStagger;
@@ -372,17 +375,18 @@ export class TextTrace implements TextTraceController {
       charPath.style.transition = `stroke-dashoffset ${timing.strokeDuration}ms cubic-bezier(.45,.05,.3,1), fill-opacity ${timing.fillDuration}ms ease`;
       this.svg.appendChild(charPath);
 
+      const isFirstVisible = index === firstVisibleIndex;
       this.later(
         runId,
         () => charPath.setAttribute('stroke-dashoffset', '0'),
         timing.strokeDelay + strokeDelay,
-        index === 0 ? 'Stroking letters' : undefined
+        isFirstVisible ? 'Stroking letters' : undefined
       );
       this.later(
         runId,
         () => charPath.setAttribute('fill-opacity', '1'),
         timing.fillDelay + strokeDelay,
-        index === 0 ? 'Filling letters' : undefined
+        isFirstVisible ? 'Filling letters' : undefined
       );
 
     });
