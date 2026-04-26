@@ -4,37 +4,24 @@ import type { BoundingBox, Font, Path } from 'opentype.js';
 import type { MultiPolygon, Polygon, Ring } from 'polygon-clipping';
 
 export type TextTraceFontKey = 'inter' | 'garamond' | 'noto-sc' | 'noto-jp';
-export type TextTraceDramaMode = 'none' | 'subtle' | 'dramatic' | 'cinematic';
 
 export interface TextTraceTiming {
-  horizontalDelay?: number;
-  horizontalDuration?: number;
-  guideDelay?: number;
-  guideStagger?: number;
-  guideDuration?: number;
-  circleDelay?: number;
-  circleDuration?: number;
-  strokeDelay?: number;
-  strokeStagger?: number;
-  strokeDuration?: number;
-  fillDelay?: number;
-  fillDuration?: number;
-  eraseDelay?: number;
-  guideEraseDuration?: number;
-  circleEraseDuration?: number;
-  horizontalEraseDelay?: number;
-  horizontalEraseDuration?: number;
+  horizontal?: number;
+  guide?: number;
+  stroke?: number;
+  fill?: number;
+  erase?: number;
 }
 
 export interface TextTraceOptions {
   text?: string;
   fontKey?: TextTraceFontKey | string;
-  dramaMode?: TextTraceDramaMode;
-  color?: string;
+  textColor?: string;
+  guideColor?: string;
+  duration?: number;
   timing?: TextTraceTiming;
   verticalGuideOvershoot?: number;
   verticalGuideProbability?: number;
-  guideExitExtension?: number;
   mergeOverlappingShapes?: boolean;
   mergeCurveSegments?: number;
   fontUrls?: Partial<Record<TextTraceFontKey | string, string>>;
@@ -54,11 +41,11 @@ type ResolvedTextTraceOptions = Required<
     TextTraceOptions,
     | 'text'
     | 'fontKey'
-    | 'dramaMode'
-    | 'color'
+    | 'textColor'
+    | 'guideColor'
+    | 'duration'
     | 'verticalGuideOvershoot'
     | 'verticalGuideProbability'
-    | 'guideExitExtension'
     | 'mergeOverlappingShapes'
     | 'mergeCurveSegments'
     | 'wawoff2Url'
@@ -69,13 +56,24 @@ type ResolvedTextTraceOptions = Required<
   onPhaseChange?: (phase: string) => void;
 };
 
-type ResolvedTextTraceTiming = Required<TextTraceTiming>;
-
-interface DramaTiming {
-  hold: number;
-  flash: boolean;
-  zoom: number;
-  preZoom: number;
+interface ResolvedTextTraceTiming {
+  horizontalDelay: number;
+  horizontalDuration: number;
+  guideDelay: number;
+  guideStagger: number;
+  guideDuration: number;
+  circleDelay: number;
+  circleDuration: number;
+  strokeDelay: number;
+  strokeStagger: number;
+  strokeDuration: number;
+  fillDelay: number;
+  fillDuration: number;
+  eraseDelay: number;
+  guideEraseDuration: number;
+  circleEraseDuration: number;
+  horizontalEraseDelay: number;
+  horizontalEraseDuration: number;
 }
 
 interface Wawoff2Module {
@@ -95,8 +93,9 @@ const HEIGHT = 240;
 const VIEW_BOX_PAD_X = 48;
 const VIEW_BOX_PAD_Y = 28;
 const HORIZONTAL_GUIDE_PAD_Y = 4;
+const GUIDE_TAIL_LENGTH = 36;
 const NORM_LEN = 1000;
-const GUIDE_COLOR = 'currentColor';
+const DEFAULT_DURATION = 1000;
 const ROUND_LATIN = new Set(['O', 'Q', 'C', 'G', 'D', 'U', 'o', 'c', 'e', 'a', 'b', 'd', 'g', 'p', 'q', '0', '6', '8', '9']);
 const DEFAULT_TEXT = 'Hello, world!';
 
@@ -113,43 +112,38 @@ export const TEXT_TRACE_FONT_URLS: Record<TextTraceFontKey, string> = {
 const DEFAULT_OPTIONS: ResolvedTextTraceOptions = {
   text: DEFAULT_TEXT,
   fontKey: 'noto-sc',
-  dramaMode: 'subtle',
-  color: '#111827',
+  textColor: '#111827',
+  guideColor: '#111827',
+  duration: DEFAULT_DURATION,
   timing: {},
   verticalGuideOvershoot: 28,
   verticalGuideProbability: 0.45,
-  guideExitExtension: 18,
   mergeOverlappingShapes: false,
   mergeCurveSegments: 12,
   fontUrls: TEXT_TRACE_FONT_URLS,
   wawoff2Url: DEFAULT_WAWOFF2_URL
 };
 
-const DEFAULT_TIMING: ResolvedTextTraceTiming = {
-  horizontalDelay: 0,
-  horizontalDuration: 700,
-  guideDelay: 100,
-  guideStagger: 30,
-  guideDuration: 550,
-  circleDelay: 150,
-  circleDuration: 800,
-  strokeDelay: 400,
-  strokeStagger: 40,
-  strokeDuration: 1100,
-  fillDelay: 800,
-  fillDuration: 600,
-  eraseDelay: 1000,
-  guideEraseDuration: 380,
-  circleEraseDuration: 600,
-  horizontalEraseDelay: 1000,
-  horizontalEraseDuration: 600
+const DEFAULT_TIMING: Required<TextTraceTiming> = {
+  horizontal: 0,
+  guide: 0.1,
+  stroke: 0.4,
+  fill: 0.8,
+  erase: 1
 };
 
-const DRAMA: Record<TextTraceDramaMode, DramaTiming> = {
-  none: { hold: 0, flash: false, zoom: 1, preZoom: 1 },
-  subtle: { hold: 300, flash: false, zoom: 1, preZoom: 1 },
-  dramatic: { hold: 700, flash: true, zoom: 1, preZoom: 1 },
-  cinematic: { hold: 1200, flash: true, zoom: 1, preZoom: 1.06 }
+const TIMING_RATIOS = {
+  horizontalDuration: 0.7,
+  guideStagger: 0.03,
+  guideDuration: 0.55,
+  circleOffset: 0.05,
+  circleDuration: 0.8,
+  strokeStagger: 0.04,
+  strokeDuration: 1.1,
+  fillDuration: 0.6,
+  guideEraseDuration: 0.38,
+  circleEraseDuration: 0.6,
+  horizontalEraseDuration: 0.6
 };
 
 const fontCache = new Map<string, Font>();
@@ -215,17 +209,16 @@ export class TextTrace implements TextTraceController {
     const runId = ++this.runId;
     this.clearTimers();
     this.svg.innerHTML = '';
-    this.svg.style.color = this.options.color;
+    this.svg.style.color = this.options.textColor;
     this.svg.style.transform = 'scale(1)';
     this.setPhase('');
 
     const text = this.options.text || DEFAULT_TEXT;
     const chars = Array.from(text);
-    const drama = DRAMA[this.options.dramaMode];
-    const timing = resolveTiming(this.options.timing);
+    const timing = resolveTiming(this.options.duration, this.options.timing);
     const verticalGuideOvershoot = Math.max(0, this.options.verticalGuideOvershoot);
     const verticalGuideProbability = clampProbability(this.options.verticalGuideProbability);
-    const guideExitExtension = Math.max(0, this.options.guideExitExtension);
+    const guideTailLength = GUIDE_TAIL_LENGTH;
 
     let font: Font;
     try {
@@ -242,7 +235,6 @@ export class TextTrace implements TextTraceController {
     const fontSize = hasCJK ? 110 : 140;
     const upm = font.unitsPerEm;
     const ascender = (font.ascender / upm) * fontSize;
-    const descender = Math.abs((font.descender / upm) * fontSize);
 
     let totalWidth = 0;
     for (const ch of chars) {
@@ -258,7 +250,6 @@ export class TextTrace implements TextTraceController {
     const startX = (viewBoxWidth - totalWidth) / 2;
     const baselineY = hasCJK ? 165 : 175;
     const metricTopY = baselineY - ascender;
-    const metricBottomY = baselineY + descender;
     let cursorX = startX;
     const glyphItems = chars.map((ch, index) => {
       const glyph = font.charToGlyph(ch);
@@ -281,36 +272,30 @@ export class TextTrace implements TextTraceController {
     const topY = visibleBBoxes.length > 0
       ? Math.min(...visibleBBoxes.map((bbox) => bbox.y1)) - HORIZONTAL_GUIDE_PAD_Y
       : metricTopY;
-    const bottomY = visibleBBoxes.length > 0
-      ? Math.max(...visibleBBoxes.map((bbox) => bbox.y2)) + HORIZONTAL_GUIDE_PAD_Y
-      : metricBottomY;
+    const bottomY = baselineY;
 
     const xL = startX - guidePadX;
     const xR = startX + totalWidth + guidePadX;
 
-    if (drama.preZoom !== 1) {
-      this.svg.style.transform = `scale(${drama.preZoom})`;
-    }
-
     const topLine = this.el('path', {
-      d: makeLinePath(xL, topY, xR + guideExitExtension, topY),
+      d: makeLinePath(xL, topY, xR + guideTailLength, topY),
       fill: 'none',
-      stroke: GUIDE_COLOR,
+      stroke: this.options.guideColor,
       'stroke-width': 0.6,
       opacity: 0.55
     });
     this.svg.appendChild(topLine);
-    setupUnifiedWipe(topLine, getVisibleNorm(xR - xL, guideExitExtension));
+    setupUnifiedWipe(topLine);
 
     const bottomLine = this.el('path', {
-      d: makeLinePath(xR, bottomY, xL - guideExitExtension, bottomY),
+      d: makeLinePath(xR, bottomY, xL - guideTailLength, bottomY),
       fill: 'none',
-      stroke: GUIDE_COLOR,
+      stroke: this.options.guideColor,
       'stroke-width': 0.6,
       opacity: 0.55
     });
     this.svg.appendChild(bottomLine);
-    setupUnifiedWipe(bottomLine, getVisibleNorm(xR - xL, guideExitExtension));
+    setupUnifiedWipe(bottomLine);
 
     topLine.style.transition = `stroke-dashoffset ${timing.horizontalDuration}ms cubic-bezier(.5,.05,.2,1)`;
     bottomLine.style.transition = `stroke-dashoffset ${timing.horizontalDuration}ms cubic-bezier(.5,.05,.2,1)`;
@@ -333,14 +318,14 @@ export class TextTrace implements TextTraceController {
         if (Math.random() >= verticalGuideProbability) return;
 
         const guide = this.el('path', {
-          d: makeLinePath(vx, verticalGuideBottomY, vx, verticalGuideTopY - guideExitExtension),
+          d: makeLinePath(vx, verticalGuideBottomY, vx, verticalGuideTopY - guideTailLength),
           fill: 'none',
-          stroke: GUIDE_COLOR,
+          stroke: this.options.guideColor,
           'stroke-width': 0.5,
           opacity: 0.45
         });
         this.svg.appendChild(guide);
-        setupUnifiedWipe(guide, getVisibleNorm(verticalGuideBottomY - verticalGuideTopY, guideExitExtension));
+        setupUnifiedWipe(guide);
         guide.style.transition = `stroke-dashoffset ${timing.guideDuration}ms ease`;
         allCharGuides.push({ node: guide, eraseDur: timing.guideEraseDuration });
         this.later(runId, () => guide.setAttribute('stroke-dashoffset', '0'), timing.guideDelay + guideDelay);
@@ -350,16 +335,15 @@ export class TextTrace implements TextTraceController {
         const cx = (bbox.x1 + bbox.x2) / 2;
         const cy = (bbox.y1 + bbox.y2) / 2;
         const r = Math.max(bbox.x2 - bbox.x1, bbox.y2 - bbox.y1) / 2 + (charIsCJK ? 3 : 2);
-        const circumference = Math.PI * 2 * r;
         const circle = this.el('path', {
-          d: `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx} ${cy + r} A ${r} ${r} 0 1 1 ${cx} ${cy - r} L ${cx + guideExitExtension} ${cy - r}`,
+          d: `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx} ${cy + r} A ${r} ${r} 0 1 1 ${cx} ${cy - r}`,
           fill: 'none',
-          stroke: GUIDE_COLOR,
+          stroke: this.options.guideColor,
           'stroke-width': 0.6,
           opacity: 0.5
         });
         this.svg.appendChild(circle);
-        setupUnifiedWipe(circle, getVisibleNorm(circumference, guideExitExtension));
+        setupUnifiedWipe(circle);
         circle.style.transition = `stroke-dashoffset ${timing.circleDuration}ms cubic-bezier(.5,.05,.2,1)`;
         allCharGuides.push({ node: circle, eraseDur: timing.circleEraseDuration });
         this.later(runId, () => circle.setAttribute('stroke-dashoffset', '0'), timing.circleDelay + guideDelay);
@@ -370,9 +354,9 @@ export class TextTrace implements TextTraceController {
         : path.toPathData(2);
       const charAttrs: Record<string, string | number> = {
         d,
-        fill: 'currentColor',
+        fill: this.options.textColor,
         'fill-opacity': 0,
-        stroke: 'currentColor',
+        stroke: this.options.textColor,
         'stroke-width': charIsCJK ? 0.9 : 1.1,
         'stroke-linecap': 'round',
         'stroke-linejoin': 'round',
@@ -402,34 +386,6 @@ export class TextTrace implements TextTraceController {
       );
 
     });
-
-    if (drama.hold > 0) {
-      this.later(runId, () => undefined, timing.strokeDelay - drama.hold, 'Hold');
-    }
-
-    if (drama.flash) {
-      const flash = this.el('rect', {
-        x: 0,
-        y: -VIEW_BOX_PAD_Y,
-        width: viewBoxWidth,
-        height: viewBoxHeight,
-        fill: 'currentColor',
-        opacity: 0
-      });
-      this.svg.appendChild(flash);
-      flash.style.transition = 'opacity 80ms ease-out';
-      this.later(runId, () => {
-        flash.setAttribute('opacity', '0.08');
-        flash.style.transition = 'opacity 350ms ease-out';
-        this.later(runId, () => flash.setAttribute('opacity', '0'), 80);
-      }, timing.strokeDelay - 30);
-    }
-
-    if (drama.preZoom !== 1) {
-      this.later(runId, () => {
-        this.svg.style.transform = `scale(${drama.zoom})`;
-      }, timing.strokeDelay - 50);
-    }
 
     this.later(runId, () => {
       allCharGuides.forEach((guide) => {
@@ -540,15 +496,15 @@ function mergeOptions(base: ResolvedTextTraceOptions, options: TextTraceOptions)
     ...options,
     text: options.text ?? base.text,
     fontKey: options.fontKey ?? base.fontKey,
-    dramaMode: options.dramaMode ?? base.dramaMode,
-    color: options.color ?? base.color,
+    textColor: options.textColor ?? base.textColor,
+    guideColor: options.guideColor ?? base.guideColor,
+    duration: options.duration ?? base.duration,
     timing: {
       ...base.timing,
       ...options.timing
     },
     verticalGuideOvershoot: options.verticalGuideOvershoot ?? base.verticalGuideOvershoot,
     verticalGuideProbability: options.verticalGuideProbability ?? base.verticalGuideProbability,
-    guideExitExtension: options.guideExitExtension ?? base.guideExitExtension,
     mergeOverlappingShapes: options.mergeOverlappingShapes ?? base.mergeOverlappingShapes,
     mergeCurveSegments: options.mergeCurveSegments ?? base.mergeCurveSegments,
     wawoff2Url: options.wawoff2Url ?? base.wawoff2Url,
@@ -568,27 +524,32 @@ function mergeFontUrls(
   return merged;
 }
 
-function resolveTiming(timing: TextTraceTiming): ResolvedTextTraceTiming {
-  const eraseDelay = numberOrDefault(timing.eraseDelay, DEFAULT_TIMING.eraseDelay);
+function resolveTiming(duration: number, timing: TextTraceTiming): ResolvedTextTraceTiming {
+  const scaledDuration = numberOrDefault(duration, DEFAULT_DURATION);
+  const horizontalDelay = fractionOrDefault(timing.horizontal, DEFAULT_TIMING.horizontal) * scaledDuration;
+  const guideDelay = fractionOrDefault(timing.guide, DEFAULT_TIMING.guide) * scaledDuration;
+  const strokeDelay = fractionOrDefault(timing.stroke, DEFAULT_TIMING.stroke) * scaledDuration;
+  const fillDelay = fractionOrDefault(timing.fill, DEFAULT_TIMING.fill) * scaledDuration;
+  const eraseDelay = fractionOrDefault(timing.erase, DEFAULT_TIMING.erase) * scaledDuration;
 
   return {
-    horizontalDelay: numberOrDefault(timing.horizontalDelay, DEFAULT_TIMING.horizontalDelay),
-    horizontalDuration: numberOrDefault(timing.horizontalDuration, DEFAULT_TIMING.horizontalDuration),
-    guideDelay: numberOrDefault(timing.guideDelay, DEFAULT_TIMING.guideDelay),
-    guideStagger: numberOrDefault(timing.guideStagger, DEFAULT_TIMING.guideStagger),
-    guideDuration: numberOrDefault(timing.guideDuration, DEFAULT_TIMING.guideDuration),
-    circleDelay: numberOrDefault(timing.circleDelay, DEFAULT_TIMING.circleDelay),
-    circleDuration: numberOrDefault(timing.circleDuration, DEFAULT_TIMING.circleDuration),
-    strokeDelay: numberOrDefault(timing.strokeDelay, DEFAULT_TIMING.strokeDelay),
-    strokeStagger: numberOrDefault(timing.strokeStagger, DEFAULT_TIMING.strokeStagger),
-    strokeDuration: numberOrDefault(timing.strokeDuration, DEFAULT_TIMING.strokeDuration),
-    fillDelay: numberOrDefault(timing.fillDelay, DEFAULT_TIMING.fillDelay),
-    fillDuration: numberOrDefault(timing.fillDuration, DEFAULT_TIMING.fillDuration),
+    horizontalDelay,
+    horizontalDuration: scaledDuration * TIMING_RATIOS.horizontalDuration,
+    guideDelay,
+    guideStagger: scaledDuration * TIMING_RATIOS.guideStagger,
+    guideDuration: scaledDuration * TIMING_RATIOS.guideDuration,
+    circleDelay: guideDelay + scaledDuration * TIMING_RATIOS.circleOffset,
+    circleDuration: scaledDuration * TIMING_RATIOS.circleDuration,
+    strokeDelay,
+    strokeStagger: scaledDuration * TIMING_RATIOS.strokeStagger,
+    strokeDuration: scaledDuration * TIMING_RATIOS.strokeDuration,
+    fillDelay,
+    fillDuration: scaledDuration * TIMING_RATIOS.fillDuration,
     eraseDelay,
-    guideEraseDuration: numberOrDefault(timing.guideEraseDuration, DEFAULT_TIMING.guideEraseDuration),
-    circleEraseDuration: numberOrDefault(timing.circleEraseDuration, DEFAULT_TIMING.circleEraseDuration),
-    horizontalEraseDelay: numberOrDefault(timing.horizontalEraseDelay, timing.eraseDelay ?? DEFAULT_TIMING.horizontalEraseDelay),
-    horizontalEraseDuration: numberOrDefault(timing.horizontalEraseDuration, DEFAULT_TIMING.horizontalEraseDuration)
+    guideEraseDuration: scaledDuration * TIMING_RATIOS.guideEraseDuration,
+    circleEraseDuration: scaledDuration * TIMING_RATIOS.circleEraseDuration,
+    horizontalEraseDelay: eraseDelay,
+    horizontalEraseDuration: scaledDuration * TIMING_RATIOS.horizontalEraseDuration
   };
 }
 
@@ -597,6 +558,13 @@ function numberOrDefault(value: number | undefined, fallback: number): number {
     return fallback;
   }
   return Math.max(0, value);
+}
+
+function fractionOrDefault(value: number | undefined, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(1, Math.max(0, value));
 }
 
 function clampProbability(value: number): number {
@@ -847,15 +815,10 @@ function formatNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
 }
 
-function getVisibleNorm(visibleLength: number, exitExtension: number): number {
-  if (visibleLength <= 0) return NORM_LEN;
-  return (visibleLength / (visibleLength + exitExtension)) * NORM_LEN;
-}
-
-function setupUnifiedWipe(node: SVGPathElement, visibleNorm = NORM_LEN): void {
+function setupUnifiedWipe(node: SVGPathElement): void {
   node.setAttribute('pathLength', String(NORM_LEN));
-  node.setAttribute('stroke-dasharray', `${visibleNorm} ${NORM_LEN * 2}`);
-  node.setAttribute('stroke-dashoffset', String(visibleNorm));
+  node.setAttribute('stroke-dasharray', `${NORM_LEN} ${NORM_LEN * 2}`);
+  node.setAttribute('stroke-dashoffset', String(NORM_LEN));
 }
 
 function makeLinePath(x1: number, y1: number, x2: number, y2: number): string {

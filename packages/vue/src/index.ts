@@ -1,7 +1,7 @@
 import { defineComponent, h, mergeProps, onBeforeUnmount, onMounted, watch } from 'vue';
 import type { PropType } from 'vue';
 import { createTextTrace, TEXT_TRACE_VIEW_BOX } from '@text-trace/core';
-import type { TextTraceController, TextTraceDramaMode, TextTraceFontKey, TextTraceOptions } from '@text-trace/core';
+import type { TextTraceController, TextTraceFontKey, TextTraceOptions } from '@text-trace/core';
 
 export const TextTrace = defineComponent({
   name: 'TextTrace',
@@ -14,13 +14,17 @@ export const TextTrace = defineComponent({
       type: String as PropType<TextTraceFontKey | string>,
       default: 'noto-sc'
     },
-    dramaMode: {
-      type: String as PropType<TextTraceDramaMode>,
-      default: 'subtle'
-    },
-    color: {
+    textColor: {
       type: String,
       default: '#111827'
+    },
+    guideColor: {
+      type: String,
+      default: '#111827'
+    },
+    duration: {
+      type: Number,
+      default: 1000
     },
     timing: {
       type: Object as PropType<TextTraceOptions['timing']>,
@@ -33,10 +37,6 @@ export const TextTrace = defineComponent({
     verticalGuideProbability: {
       type: Number,
       default: 0.45
-    },
-    guideExitExtension: {
-      type: Number,
-      default: 18
     },
     mergeOverlappingShapes: {
       type: Boolean,
@@ -66,12 +66,12 @@ export const TextTrace = defineComponent({
     const readOptions = (): TextTraceOptions => ({
       text: props.text,
       fontKey: props.fontKey,
-      dramaMode: props.dramaMode,
-      color: props.color,
+      textColor: props.textColor,
+      guideColor: props.guideColor,
+      duration: props.duration,
       timing: props.timing,
       verticalGuideOvershoot: props.verticalGuideOvershoot,
       verticalGuideProbability: props.verticalGuideProbability,
-      guideExitExtension: props.guideExitExtension,
       mergeOverlappingShapes: props.mergeOverlappingShapes,
       mergeCurveSegments: props.mergeCurveSegments,
       fontUrls: props.fontUrls,
@@ -94,12 +94,12 @@ export const TextTrace = defineComponent({
       () => [
         props.text,
         props.fontKey,
-        props.dramaMode,
-        props.color,
+        props.textColor,
+        props.guideColor,
+        props.duration,
         props.timing,
         props.verticalGuideOvershoot,
         props.verticalGuideProbability,
-        props.guideExitExtension,
         props.mergeOverlappingShapes,
         props.mergeCurveSegments,
         props.fontUrls,

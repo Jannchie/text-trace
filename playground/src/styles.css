@@ -6,8 +6,8 @@
   --text: #0f172a;
   --text-soft: #475569;
   --text-muted: #64748b;
-  --accent: #2563eb;
-  --accent-soft: rgba(37, 99, 235, 0.12);
+  --accent: #111827;
+  --accent-soft: rgba(17, 24, 39, 0.12);
   --code-bg: #f8fafc;
   --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
 
@@ -210,6 +210,10 @@ button {
   background-repeat: no-repeat;
   background-position: right 8px center;
   padding-right: 24px;
+}
+
+.controls input[type="color"] {
+  padding: 3px;
 }
 
 .controls label.checkbox {

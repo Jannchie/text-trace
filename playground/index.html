@@ -37,38 +37,45 @@
                 <option value="garamond">EB Garamond</option>
               </select>
             </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Style</legend>
             <label>
-              <span>Drama</span>
-              <select id="drama-select">
-                <option value="none">No pause</option>
-                <option value="subtle" selected>Subtle</option>
-                <option value="dramatic">Dramatic</option>
-                <option value="cinematic">Cinematic</option>
-              </select>
+              <span>Text color</span>
+              <input id="text-color-input" type="color" value="#111827" />
+            </label>
+            <label>
+              <span>Guide color</span>
+              <input id="guide-color-input" type="color" value="#111827" />
             </label>
           </fieldset>
 
           <fieldset>
-            <legend>Timing (ms)</legend>
+            <legend>Timing</legend>
+            <label>
+              <span>Duration</span>
+              <input id="duration-input" type="number" min="0" step="100" value="1000" />
+            </label>
             <label>
               <span>Horizontal</span>
-              <input id="horizontal-delay-input" type="number" min="0" step="50" value="0" />
+              <input id="horizontal-time-input" type="number" min="0" max="1" step="0.01" value="0" />
             </label>
             <label>
               <span>Guide</span>
-              <input id="guide-delay-input" type="number" min="0" step="50" value="100" />
+              <input id="guide-time-input" type="number" min="0" max="1" step="0.01" value="0.1" />
             </label>
             <label>
               <span>Stroke</span>
-              <input id="stroke-delay-input" type="number" min="0" step="50" value="400" />
+              <input id="stroke-time-input" type="number" min="0" max="1" step="0.01" value="0.4" />
             </label>
             <label>
               <span>Fill</span>
-              <input id="fill-delay-input" type="number" min="0" step="50" value="800" />
+              <input id="fill-time-input" type="number" min="0" max="1" step="0.01" value="0.8" />
             </label>
             <label>
               <span>Erase</span>
-              <input id="erase-delay-input" type="number" min="0" step="50" value="1000" />
+              <input id="erase-time-input" type="number" min="0" max="1" step="0.01" value="1" />
             </label>
           </fieldset>
 
@@ -81,10 +88,6 @@
             <label>
               <span>Vertical probability</span>
               <input id="vertical-probability-input" type="number" min="0" max="1" step="0.05" value="0.45" />
-            </label>
-            <label>
-              <span>Exit extension</span>
-              <input id="guide-exit-extension-input" type="number" min="0" step="2" value="18" />
             </label>
             <label class="checkbox">
               <input id="merge-overlaps-input" type="checkbox" />

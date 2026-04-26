@@ -13,6 +13,9 @@
     }
   },
   "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup src/index.tsx --format esm,cjs --dts --clean --external react --external @text-trace/core",
     "check": "tsc -p tsconfig.json --noEmit"

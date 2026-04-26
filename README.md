@@ -24,21 +24,23 @@ pnpm build
 
 ## Timing
 
-`@text-trace/core` accepts a `timing` option. Delay values are milliseconds after the font has loaded, so phases can overlap:
+`@text-trace/core` accepts a `duration` option in milliseconds and a `timing` option with phase positions from `0` to `1`:
 
 ```ts
 createTextTrace(svg, {
   text: "Hello, world!",
+  textColor: "#111827",
+  guideColor: "#111827",
+  duration: 1000,
   timing: {
-    horizontalDelay: 0,
-    guideDelay: 100,
-    strokeDelay: 400,
-    fillDelay: 800,
-    eraseDelay: 1000
+    horizontal: 0,
+    guide: 0.1,
+    stroke: 0.4,
+    fill: 0.8,
+    erase: 1
   },
   verticalGuideOvershoot: 28,
   verticalGuideProbability: 0.45,
-  guideExitExtension: 18,
   mergeOverlappingShapes: true
 });
 ```

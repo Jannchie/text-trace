@@ -1,5 +1,5 @@
 import { createTextTrace } from '@text-trace/core';
-import type { TextTraceDramaMode, TextTraceFontKey } from '@text-trace/core';
+import type { TextTraceFontKey } from '@text-trace/core';
 import { createHighlighterCore, type HighlighterCore } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
 import { jannchieLight } from '@jannchie/shiki-theme';
@@ -21,45 +21,48 @@ const DEFAULT_TEXT = 'Hello, world!';
 const URL_PARAMS = {
   text: 'text',
   fontKey: 'font',
-  dramaMode: 'drama',
-  horizontalDelay: 'horizontalDelay',
-  guideDelay: 'guideDelay',
-  strokeDelay: 'strokeDelay',
-  fillDelay: 'fillDelay',
-  eraseDelay: 'eraseDelay',
+  textColor: 'textColor',
+  guideColor: 'guideColor',
+  duration: 'duration',
+  horizontal: 'horizontal',
+  guide: 'guide',
+  stroke: 'stroke',
+  fill: 'fill',
+  erase: 'erase',
   verticalOvershoot: 'verticalOvershoot',
   verticalProbability: 'verticalProbability',
-  guideExitExtension: 'guideExitExtension',
   mergeOverlappingShapes: 'mergeOverlappingShapes'
 };
 
 const DEFAULTS = {
   text: DEFAULT_TEXT,
   fontKey: 'noto-sc',
-  dramaMode: 'subtle',
-  horizontalDelay: 0,
-  guideDelay: 100,
-  strokeDelay: 400,
-  fillDelay: 800,
-  eraseDelay: 1000,
+  textColor: '#111827',
+  guideColor: '#111827',
+  duration: 1000,
+  horizontal: 0,
+  guide: 0.1,
+  stroke: 0.4,
+  fill: 0.8,
+  erase: 1,
   verticalGuideOvershoot: 28,
   verticalGuideProbability: 0.45,
-  guideExitExtension: 18,
   mergeOverlappingShapes: false
 } as const;
 
 const svg = readElement('trace-stage', SVGSVGElement);
 const textInput = readElement('text-input', HTMLInputElement);
 const fontSelect = readElement('font-select', HTMLSelectElement);
-const dramaSelect = readElement('drama-select', HTMLSelectElement);
-const horizontalDelayInput = readElement('horizontal-delay-input', HTMLInputElement);
-const guideDelayInput = readElement('guide-delay-input', HTMLInputElement);
-const strokeDelayInput = readElement('stroke-delay-input', HTMLInputElement);
-const fillDelayInput = readElement('fill-delay-input', HTMLInputElement);
-const eraseDelayInput = readElement('erase-delay-input', HTMLInputElement);
+const textColorInput = readElement('text-color-input', HTMLInputElement);
+const guideColorInput = readElement('guide-color-input', HTMLInputElement);
+const durationInput = readElement('duration-input', HTMLInputElement);
+const horizontalTimeInput = readElement('horizontal-time-input', HTMLInputElement);
+const guideTimeInput = readElement('guide-time-input', HTMLInputElement);
+const strokeTimeInput = readElement('stroke-time-input', HTMLInputElement);
+const fillTimeInput = readElement('fill-time-input', HTMLInputElement);
+const eraseTimeInput = readElement('erase-time-input', HTMLInputElement);
 const verticalOvershootInput = readElement('vertical-overshoot-input', HTMLInputElement);
 const verticalProbabilityInput = readElement('vertical-probability-input', HTMLInputElement);
-const guideExitExtensionInput = readElement('guide-exit-extension-input', HTMLInputElement);
 const mergeOverlapsInput = readElement('merge-overlaps-input', HTMLInputElement);
 const replayButton = readElement('replay-button', HTMLButtonElement);
 const phaseReadout = readElement('phase-readout', HTMLElement);
@@ -83,15 +86,16 @@ const trace = createTextTrace(svg, {
 interface Snapshot {
   text: string;
   fontKey: TextTraceFontKey;
-  dramaMode: TextTraceDramaMode;
-  horizontalDelay: number;
-  guideDelay: number;
-  strokeDelay: number;
-  fillDelay: number;
-  eraseDelay: number;
+  textColor: string;
+  guideColor: string;
+  duration: number;
+  horizontal: number;
+  guide: number;
+  stroke: number;
+  fill: number;
+  erase: number;
   verticalGuideOvershoot: number;
   verticalGuideProbability: number;
-  guideExitExtension: number;
   mergeOverlappingShapes: boolean;
 }
 
@@ -99,15 +103,16 @@ function readSnapshot(): Snapshot {
   return {
     text: textInput.value || DEFAULT_TEXT,
     fontKey: fontSelect.value as TextTraceFontKey,
-    dramaMode: dramaSelect.value as TextTraceDramaMode,
-    horizontalDelay: readDelay(horizontalDelayInput),
-    guideDelay: readDelay(guideDelayInput),
-    strokeDelay: readDelay(strokeDelayInput),
-    fillDelay: readDelay(fillDelayInput),
-    eraseDelay: readDelay(eraseDelayInput),
+    textColor: textColorInput.value || DEFAULTS.textColor,
+    guideColor: guideColorInput.value || DEFAULTS.guideColor,
+    duration: readDuration(durationInput),
+    horizontal: readFraction(horizontalTimeInput),
+    guide: readFraction(guideTimeInput),
+    stroke: readFraction(strokeTimeInput),
+    fill: readFraction(fillTimeInput),
+    erase: readFraction(eraseTimeInput),
     verticalGuideOvershoot: readDelay(verticalOvershootInput),
     verticalGuideProbability: readProbability(verticalProbabilityInput),
-    guideExitExtension: readDelay(guideExitExtensionInput),
     mergeOverlappingShapes: mergeOverlapsInput.checked
   };
 }
@@ -120,19 +125,18 @@ function render() {
   void trace.update({
     text: snap.text,
     fontKey: snap.fontKey,
-    dramaMode: snap.dramaMode,
+    textColor: snap.textColor,
+    guideColor: snap.guideColor,
+    duration: snap.duration,
     timing: {
-      horizontalDelay: snap.horizontalDelay,
-      guideDelay: snap.guideDelay,
-      circleDelay: snap.guideDelay + 50,
-      strokeDelay: snap.strokeDelay,
-      fillDelay: snap.fillDelay,
-      eraseDelay: snap.eraseDelay,
-      horizontalEraseDelay: snap.eraseDelay
+      horizontal: snap.horizontal,
+      guide: snap.guide,
+      stroke: snap.stroke,
+      fill: snap.fill,
+      erase: snap.erase
     },
     verticalGuideOvershoot: snap.verticalGuideOvershoot,
     verticalGuideProbability: snap.verticalGuideProbability,
-    guideExitExtension: snap.guideExitExtension,
     mergeOverlappingShapes: snap.mergeOverlappingShapes,
     onPhaseChange: setPhase
   });
@@ -140,15 +144,16 @@ function render() {
 
 textInput.addEventListener('input', render);
 fontSelect.addEventListener('change', render);
-dramaSelect.addEventListener('change', render);
-horizontalDelayInput.addEventListener('input', render);
-guideDelayInput.addEventListener('input', render);
-strokeDelayInput.addEventListener('input', render);
-fillDelayInput.addEventListener('input', render);
-eraseDelayInput.addEventListener('input', render);
+textColorInput.addEventListener('input', render);
+guideColorInput.addEventListener('input', render);
+durationInput.addEventListener('input', render);
+horizontalTimeInput.addEventListener('input', render);
+guideTimeInput.addEventListener('input', render);
+strokeTimeInput.addEventListener('input', render);
+fillTimeInput.addEventListener('input', render);
+eraseTimeInput.addEventListener('input', render);
 verticalOvershootInput.addEventListener('input', render);
 verticalProbabilityInput.addEventListener('input', render);
-guideExitExtensionInput.addEventListener('input', render);
 mergeOverlapsInput.addEventListener('change', render);
 replayButton.addEventListener('click', render);
 
@@ -205,11 +210,12 @@ void highlighterPromise.then((instance) => {
 interface OptionsView {
   text?: string;
   fontKey?: string;
-  dramaMode?: string;
+  textColor?: string;
+  guideColor?: string;
+  duration?: number;
   timing?: Record<string, number>;
   verticalGuideOvershoot?: number;
   verticalGuideProbability?: number;
-  guideExitExtension?: number;
   mergeOverlappingShapes?: boolean;
 }
 
@@ -217,19 +223,20 @@ function buildOptionsObject(snap: Snapshot): OptionsView {
   const view: OptionsView = {};
   if (snap.text !== DEFAULTS.text) view.text = snap.text;
   if (snap.fontKey !== DEFAULTS.fontKey) view.fontKey = snap.fontKey;
-  if (snap.dramaMode !== DEFAULTS.dramaMode) view.dramaMode = snap.dramaMode;
+  if (snap.textColor !== DEFAULTS.textColor) view.textColor = snap.textColor;
+  if (snap.guideColor !== DEFAULTS.guideColor) view.guideColor = snap.guideColor;
+  if (snap.duration !== DEFAULTS.duration) view.duration = snap.duration;
 
   const timing: Record<string, number> = {};
-  if (snap.horizontalDelay !== DEFAULTS.horizontalDelay) timing.horizontalDelay = snap.horizontalDelay;
-  if (snap.guideDelay !== DEFAULTS.guideDelay) timing.guideDelay = snap.guideDelay;
-  if (snap.strokeDelay !== DEFAULTS.strokeDelay) timing.strokeDelay = snap.strokeDelay;
-  if (snap.fillDelay !== DEFAULTS.fillDelay) timing.fillDelay = snap.fillDelay;
-  if (snap.eraseDelay !== DEFAULTS.eraseDelay) timing.eraseDelay = snap.eraseDelay;
+  if (snap.horizontal !== DEFAULTS.horizontal) timing.horizontal = snap.horizontal;
+  if (snap.guide !== DEFAULTS.guide) timing.guide = snap.guide;
+  if (snap.stroke !== DEFAULTS.stroke) timing.stroke = snap.stroke;
+  if (snap.fill !== DEFAULTS.fill) timing.fill = snap.fill;
+  if (snap.erase !== DEFAULTS.erase) timing.erase = snap.erase;
   if (Object.keys(timing).length > 0) view.timing = timing;
 
   if (snap.verticalGuideOvershoot !== DEFAULTS.verticalGuideOvershoot) view.verticalGuideOvershoot = snap.verticalGuideOvershoot;
   if (snap.verticalGuideProbability !== DEFAULTS.verticalGuideProbability) view.verticalGuideProbability = snap.verticalGuideProbability;
-  if (snap.guideExitExtension !== DEFAULTS.guideExitExtension) view.guideExitExtension = snap.guideExitExtension;
   if (snap.mergeOverlappingShapes !== DEFAULTS.mergeOverlappingShapes) view.mergeOverlappingShapes = snap.mergeOverlappingShapes;
   return view;
 }
@@ -299,11 +306,12 @@ function formatVueAttrs(opts: OptionsView): string {
   const lines: string[] = [];
   if (opts.text !== undefined) lines.push(`  text=${JSON.stringify(opts.text)}`);
   if (opts.fontKey !== undefined) lines.push(`  font-key=${JSON.stringify(opts.fontKey)}`);
-  if (opts.dramaMode !== undefined) lines.push(`  drama-mode=${JSON.stringify(opts.dramaMode)}`);
+  if (opts.textColor !== undefined) lines.push(`  text-color=${JSON.stringify(opts.textColor)}`);
+  if (opts.guideColor !== undefined) lines.push(`  guide-color=${JSON.stringify(opts.guideColor)}`);
+  if (opts.duration !== undefined) lines.push(`  :duration="${opts.duration}"`);
   if (opts.timing) lines.push(`  :timing="${formatInlineObject(opts.timing)}"`);
   if (opts.verticalGuideOvershoot !== undefined) lines.push(`  :vertical-guide-overshoot="${opts.verticalGuideOvershoot}"`);
   if (opts.verticalGuideProbability !== undefined) lines.push(`  :vertical-guide-probability="${opts.verticalGuideProbability}"`);
-  if (opts.guideExitExtension !== undefined) lines.push(`  :guide-exit-extension="${opts.guideExitExtension}"`);
   if (opts.mergeOverlappingShapes) lines.push(`  merge-overlapping-shapes`);
   return lines.join('\n');
 }
@@ -313,11 +321,12 @@ function formatReactAttrs(opts: OptionsView): string {
   const lines: string[] = [];
   if (opts.text !== undefined) lines.push(`${pad}text=${JSON.stringify(opts.text)}`);
   if (opts.fontKey !== undefined) lines.push(`${pad}fontKey=${JSON.stringify(opts.fontKey)}`);
-  if (opts.dramaMode !== undefined) lines.push(`${pad}dramaMode=${JSON.stringify(opts.dramaMode)}`);
+  if (opts.textColor !== undefined) lines.push(`${pad}textColor=${JSON.stringify(opts.textColor)}`);
+  if (opts.guideColor !== undefined) lines.push(`${pad}guideColor=${JSON.stringify(opts.guideColor)}`);
+  if (opts.duration !== undefined) lines.push(`${pad}duration={${opts.duration}}`);
   if (opts.timing) lines.push(`${pad}timing={${formatInlineObject(opts.timing)}}`);
   if (opts.verticalGuideOvershoot !== undefined) lines.push(`${pad}verticalGuideOvershoot={${opts.verticalGuideOvershoot}}`);
   if (opts.verticalGuideProbability !== undefined) lines.push(`${pad}verticalGuideProbability={${opts.verticalGuideProbability}}`);
-  if (opts.guideExitExtension !== undefined) lines.push(`${pad}guideExitExtension={${opts.guideExitExtension}}`);
   if (opts.mergeOverlappingShapes) lines.push(`${pad}mergeOverlappingShapes`);
   return lines.join('\n');
 }
@@ -342,15 +351,16 @@ function restoreFromUrl(): void {
   if (text !== null) textInput.value = text;
 
   setSelectFromUrl(fontSelect, params.get(URL_PARAMS.fontKey));
-  setSelectFromUrl(dramaSelect, params.get(URL_PARAMS.dramaMode));
-  setInputFromUrl(horizontalDelayInput, params.get(URL_PARAMS.horizontalDelay));
-  setInputFromUrl(guideDelayInput, params.get(URL_PARAMS.guideDelay));
-  setInputFromUrl(strokeDelayInput, params.get(URL_PARAMS.strokeDelay));
-  setInputFromUrl(fillDelayInput, params.get(URL_PARAMS.fillDelay));
-  setInputFromUrl(eraseDelayInput, params.get(URL_PARAMS.eraseDelay));
+  setColorFromUrl(textColorInput, params.get(URL_PARAMS.textColor));
+  setColorFromUrl(guideColorInput, params.get(URL_PARAMS.guideColor));
+  setInputFromUrl(durationInput, params.get(URL_PARAMS.duration));
+  setInputFromUrl(horizontalTimeInput, params.get(URL_PARAMS.horizontal));
+  setInputFromUrl(guideTimeInput, params.get(URL_PARAMS.guide));
+  setInputFromUrl(strokeTimeInput, params.get(URL_PARAMS.stroke));
+  setInputFromUrl(fillTimeInput, params.get(URL_PARAMS.fill));
+  setInputFromUrl(eraseTimeInput, params.get(URL_PARAMS.erase));
   setInputFromUrl(verticalOvershootInput, params.get(URL_PARAMS.verticalOvershoot));
   setInputFromUrl(verticalProbabilityInput, params.get(URL_PARAMS.verticalProbability));
-  setInputFromUrl(guideExitExtensionInput, params.get(URL_PARAMS.guideExitExtension));
   setCheckboxFromUrl(mergeOverlapsInput, params.get(URL_PARAMS.mergeOverlappingShapes));
 }
 
@@ -358,15 +368,16 @@ function writeUrl(snap: Snapshot): void {
   const params = new URLSearchParams();
   params.set(URL_PARAMS.text, snap.text);
   params.set(URL_PARAMS.fontKey, snap.fontKey);
-  params.set(URL_PARAMS.dramaMode, snap.dramaMode);
-  params.set(URL_PARAMS.horizontalDelay, String(snap.horizontalDelay));
-  params.set(URL_PARAMS.guideDelay, String(snap.guideDelay));
-  params.set(URL_PARAMS.strokeDelay, String(snap.strokeDelay));
-  params.set(URL_PARAMS.fillDelay, String(snap.fillDelay));
-  params.set(URL_PARAMS.eraseDelay, String(snap.eraseDelay));
+  params.set(URL_PARAMS.textColor, snap.textColor);
+  params.set(URL_PARAMS.guideColor, snap.guideColor);
+  params.set(URL_PARAMS.duration, String(snap.duration));
+  params.set(URL_PARAMS.horizontal, String(snap.horizontal));
+  params.set(URL_PARAMS.guide, String(snap.guide));
+  params.set(URL_PARAMS.stroke, String(snap.stroke));
+  params.set(URL_PARAMS.fill, String(snap.fill));
+  params.set(URL_PARAMS.erase, String(snap.erase));
   params.set(URL_PARAMS.verticalOvershoot, String(snap.verticalGuideOvershoot));
   params.set(URL_PARAMS.verticalProbability, String(snap.verticalGuideProbability));
-  params.set(URL_PARAMS.guideExitExtension, String(snap.guideExitExtension));
   params.set(URL_PARAMS.mergeOverlappingShapes, String(snap.mergeOverlappingShapes));
 
   window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
@@ -382,13 +393,30 @@ function setInputFromUrl(input: HTMLInputElement, value: string | null): void {
   if (value !== null && value !== '') input.value = value;
 }
 
+function setColorFromUrl(input: HTMLInputElement, value: string | null): void {
+  if (value !== null && /^#[0-9a-f]{6}$/i.test(value)) {
+    input.value = value;
+  }
+}
+
 function setCheckboxFromUrl(input: HTMLInputElement, value: string | null): void {
   if (value !== null) input.checked = value === 'true';
+}
+
+function readDuration(input: HTMLInputElement): number {
+  const value = Number(input.value);
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
 function readDelay(input: HTMLInputElement): number {
   const value = Number(input.value);
   return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function readFraction(input: HTMLInputElement): number {
+  const value = Number(input.value);
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
 }
 
 function readProbability(input: HTMLInputElement): number {
