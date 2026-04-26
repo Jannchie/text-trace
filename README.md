@@ -2,6 +2,10 @@
 
 Text Trace is a small monorepo extracted from `keynote_trace_animation_v7_cjk_unified.html`.
 
+## Demo
+
+![Text Trace demo](public/demo.gif)
+
 ## Packages
 
 - `@text-trace/core`: framework-agnostic SVG text trace animation.
