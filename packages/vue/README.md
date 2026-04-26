@@ -8,6 +8,16 @@ In Nuxt, render it inside `<ClientOnly>` because the animation is browser-driven
 <script setup lang="ts">
 import { TextTrace } from "@text-trace/vue";
 import fontUrl from "./brand.woff?url";
+
+const glyphStyles = [
+  {
+    at: [8, 9],
+    style: {
+      textColor: "#2563eb",
+      guideColor: "#2563eb"
+    }
+  }
+];
 </script>
 
 <template>
@@ -16,6 +26,7 @@ import fontUrl from "./brand.woff?url";
       text="Snowcake47"
       font-key="brand"
       :font-source="fontUrl"
+      :glyph-styles="glyphStyles"
       aria-label="Snowcake47"
     />
   </ClientOnly>

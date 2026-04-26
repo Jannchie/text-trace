@@ -13,6 +13,15 @@ export function Logo() {
       fontKey="brand"
       fontSource={fontUrl}
       aria-label="Snowcake47"
+      glyphStyles={[
+        {
+          at: [8, 9],
+          style: {
+            textColor: "#2563eb",
+            guideColor: "#2563eb"
+          }
+        }
+      ]}
     />
   );
 }

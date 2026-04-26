@@ -46,6 +46,10 @@ export const TextTrace = defineComponent({
       type: Number,
       default: 12
     },
+    glyphStyles: {
+      type: Array as PropType<TextTraceOptions['glyphStyles']>,
+      default: undefined
+    },
     fontSource: {
       type: [String, Object, Function] as PropType<TextTraceOptions['fontSource']>,
       default: undefined
@@ -94,6 +98,7 @@ export const TextTrace = defineComponent({
       verticalGuideProbability: props.verticalGuideProbability,
       mergeOverlappingShapes: props.mergeOverlappingShapes,
       mergeCurveSegments: props.mergeCurveSegments,
+      glyphStyles: props.glyphStyles,
       fontSource: props.fontSource,
       fontSources: props.fontSources,
       fontUrls: props.fontUrls,
@@ -127,6 +132,7 @@ export const TextTrace = defineComponent({
         props.verticalGuideProbability,
         props.mergeOverlappingShapes,
         props.mergeCurveSegments,
+        props.glyphStyles,
         props.fontSource,
         props.fontSources,
         props.fontUrls,

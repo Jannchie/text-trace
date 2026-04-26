@@ -112,6 +112,34 @@ The SVG uses `role="img"` and an accessible name by default. The name comes from
 
 Use `decorative: true` when the animation is purely decorative and real text is already present nearby.
 
+## Per-Glyph Styles
+
+Use `glyphStyles` to override colors for specific character indexes. `from` is inclusive and `to` is exclusive.
+
+```ts
+createTextTrace(svg, {
+  text: "Snowcake47",
+  textColor: "#111827",
+  guideColor: "#111827",
+  glyphStyles: [
+    {
+      at: [8, 9],
+      style: {
+        textColor: "#2563eb",
+        guideColor: "#2563eb"
+      }
+    },
+    {
+      from: 4,
+      to: 8,
+      style: {
+        textColor: "#dc2626"
+      }
+    }
+  ]
+});
+```
+
 ## SVG Paths
 
 Use `getTextTracePaths` when you only need the generated glyph paths:

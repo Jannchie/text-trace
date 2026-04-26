@@ -21,6 +21,22 @@ export interface TextTraceTiming {
   erase?: number;
 }
 
+export interface TextTraceGlyphStyle {
+  textColor?: string;
+  guideColor?: string;
+}
+
+export type TextTraceGlyphStyleRule =
+  | {
+      at: number | number[];
+      style: TextTraceGlyphStyle;
+    }
+  | {
+      from: number;
+      to: number;
+      style: TextTraceGlyphStyle;
+    };
+
 export interface TextTraceOptions {
   text?: string;
   fontKey?: TextTraceFontKey | string;
@@ -32,6 +48,7 @@ export interface TextTraceOptions {
   verticalGuideProbability?: number;
   mergeOverlappingShapes?: boolean;
   mergeCurveSegments?: number;
+  glyphStyles?: TextTraceGlyphStyleRule[];
   fontSource?: TextTraceFontSource;
   fontSources?: Partial<Record<TextTraceFontKey | string, TextTraceFontSource>>;
   fontUrls?: Partial<Record<TextTraceFontKey | string, string>>;
@@ -52,6 +69,7 @@ export interface TextTracePathItem {
     x2: number;
     y2: number;
   };
+  style: Required<TextTraceGlyphStyle>;
   fillRule?: 'evenodd';
 }
 
@@ -85,6 +103,7 @@ type ResolvedTextTraceOptions = Required<
   >
 > & {
   timing: TextTraceTiming;
+  glyphStyles: TextTraceGlyphStyleRule[];
   fontSources: Record<string, TextTraceFontSource>;
   wawoff2Url?: string;
   wawoff2?: TextTraceWawoff2Source;
@@ -153,6 +172,7 @@ const DEFAULT_OPTIONS: ResolvedTextTraceOptions = {
   guideColor: '#111827',
   duration: DEFAULT_DURATION,
   timing: {},
+  glyphStyles: [],
   verticalGuideOvershoot: 28,
   verticalGuideProbability: 0.45,
   mergeOverlappingShapes: false,
@@ -256,6 +276,7 @@ export async function getTextTracePaths(options: TextTraceOptions = {}): Promise
         x2: item.bbox.x2,
         y2: item.bbox.y2
       },
+      style: resolveGlyphStyle(item.index, resolved),
       fillRule: resolved.mergeOverlappingShapes ? 'evenodd' : undefined
     }))
   };
@@ -342,6 +363,7 @@ export class TextTrace implements TextTraceController {
     const firstVisibleIndex = layout.visibleItems[0]?.index ?? -1;
 
     layout.visibleItems.forEach(({ index, path, bbox, charIsCJK, wantCircle }) => {
+      const glyphStyle = resolveGlyphStyle(index, this.options);
 
       const guideDelay = index * timing.guideStagger;
       const strokeDelay = index * timing.strokeStagger;
@@ -354,7 +376,7 @@ export class TextTrace implements TextTraceController {
         const guide = this.el('path', {
           d: makeLinePath(vx, verticalGuideBottomY, vx, verticalGuideTopY - guideTailLength),
           fill: 'none',
-          stroke: this.options.guideColor,
+          stroke: glyphStyle.guideColor,
           'stroke-width': 0.5,
           opacity: 0.45
         });
@@ -372,7 +394,7 @@ export class TextTrace implements TextTraceController {
         const circle = this.el('path', {
           d: `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx} ${cy + r} A ${r} ${r} 0 1 1 ${cx} ${cy - r}`,
           fill: 'none',
-          stroke: this.options.guideColor,
+          stroke: glyphStyle.guideColor,
           'stroke-width': 0.6,
           opacity: 0.5
         });
@@ -386,9 +408,9 @@ export class TextTrace implements TextTraceController {
       const d = getGlyphPathData(path, this.options);
       const charAttrs: Record<string, string | number> = {
         d,
-        fill: this.options.textColor,
+        fill: glyphStyle.textColor,
         'fill-opacity': 0,
-        stroke: this.options.textColor,
+        stroke: glyphStyle.textColor,
         'stroke-width': charIsCJK ? 0.9 : 1.1,
         'stroke-linecap': 'round',
         'stroke-linejoin': 'round',
@@ -566,6 +588,7 @@ function mergeOptions(base: ResolvedTextTraceOptions, options: TextTraceOptions)
       ...base.timing,
       ...options.timing
     },
+    glyphStyles: options.glyphStyles ?? base.glyphStyles,
     verticalGuideOvershoot: options.verticalGuideOvershoot ?? base.verticalGuideOvershoot,
     verticalGuideProbability: options.verticalGuideProbability ?? base.verticalGuideProbability,
     mergeOverlappingShapes: options.mergeOverlappingShapes ?? base.mergeOverlappingShapes,
@@ -724,6 +747,29 @@ function getGlyphPathData(path: Path, options: ResolvedTextTraceOptions): string
   return options.mergeOverlappingShapes
     ? mergeOverlappingPathData(path, options.mergeCurveSegments)
     : path.toPathData(2);
+}
+
+function resolveGlyphStyle(index: number, options: ResolvedTextTraceOptions): Required<TextTraceGlyphStyle> {
+  const style: Required<TextTraceGlyphStyle> = {
+    textColor: options.textColor,
+    guideColor: options.guideColor
+  };
+
+  options.glyphStyles.forEach((rule) => {
+    if (!glyphStyleRuleMatches(rule, index)) return;
+    style.textColor = rule.style.textColor ?? style.textColor;
+    style.guideColor = rule.style.guideColor ?? style.guideColor;
+  });
+
+  return style;
+}
+
+function glyphStyleRuleMatches(rule: TextTraceGlyphStyleRule, index: number): boolean {
+  if ('at' in rule) {
+    return Array.isArray(rule.at) ? rule.at.includes(index) : rule.at === index;
+  }
+
+  return index >= rule.from && index < rule.to;
 }
 
 function resolveAccessibleLabel(ariaLabel: string | null, text: string): string {
