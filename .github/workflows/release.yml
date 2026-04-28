@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    if: github.repository == 'Jannchie/text-trace'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.14.0
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Ensure npm supports trusted publishing
+        run: npm install --global npm@^11.10.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check
+        run: pnpm check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Pack and publish packages
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pack_dir="$RUNNER_TEMP/text-trace-packs"
+          packages=(
+            "@text-trace/core"
+            "@text-trace/vue"
+            "@text-trace/react"
+          )
+
+          mkdir -p "$pack_dir"
+
+          for package in "${packages[@]}"; do
+            rm -f "$pack_dir"/*.tgz
+            pnpm --filter "$package" pack --pack-destination "$pack_dir"
+            npm publish "$pack_dir"/*.tgz --access public
+          done
