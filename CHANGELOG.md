@@ -1,3 +1,19 @@
+## v0.3.0
+
+[v0.2.0...v0.3.0](https://github.com/Jannchie/text-trace/compare/v0.2.0...v0.3.0)
+
+### :rocket: Breaking Changes
+
+- **core**: revamp public api and font loading - By [Jannchie](mailto:jannchie@gmail.com) in [1a8cdb8](https://github.com/Jannchie/text-trace/commit/1a8cdb8)
+
+### :sparkles: Features
+
+- **ci**: add release workflow and trust script - By [Jannchie](mailto:jannchie@gmail.com) in [bf17b13](https://github.com/Jannchie/text-trace/commit/bf17b13)
+
+### :zap: Performance Improvements
+
+- **core**: improve loading and render performance - By [Jannchie](mailto:jannchie@gmail.com) in [433f7c6](https://github.com/Jannchie/text-trace/commit/433f7c6)
+
 ## v0.2.0
 
 [v0.1.0...v0.2.0](https://github.com/Jannchie/text-trace/compare/v0.1.0...v0.2.0)
