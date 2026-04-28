@@ -1,24 +1,37 @@
 # Text Trace
 
+Text Trace turns font glyphs into animated SVG tracing paths. It ships a framework-agnostic core package plus React and Vue bindings.
+
 ## Demo
 
 ![Text Trace demo](public/demo.gif)
 
-## Packages
+## Installation
 
-- `@text-trace/core`: framework-agnostic SVG text trace animation.
-- `@text-trace/vue`: Vue binding.
-- `@text-trace/react`: React binding.
-- `text-trace-playground`: native TypeScript playground for debugging `@text-trace/core`.
+Install the core package when you want to render into an existing SVG element:
 
-## Usage
+```bash
+pnpm add @text-trace/core
+```
+
+Install the matching framework binding for React or Vue:
+
+```bash
+pnpm add @text-trace/core @text-trace/react
+pnpm add @text-trace/core @text-trace/vue
+```
+
+## Quick Start
+
+### Core
 
 ```ts
 import { createTextTrace, loadTextTraceFont } from "@text-trace/core";
+import brandFontUrl from "./brand.woff?url";
 
 const svg = document.querySelector<SVGSVGElement>("svg")!;
 const font = await loadTextTraceFont({
-  source: "/fonts/brand.woff"
+  source: brandFontUrl
 });
 
 const trace = createTextTrace(svg, {
@@ -34,7 +47,7 @@ const trace = createTextTrace(svg, {
 await trace.play();
 ```
 
-React:
+### React
 
 ```tsx
 import { TextTrace } from "@text-trace/react";
@@ -45,15 +58,16 @@ export function Logo({ font }: { font: TextTraceFont }) {
 }
 ```
 
-Vue:
+### Vue
 
 ```vue
 <script setup lang="ts">
 import { loadTextTraceFont } from "@text-trace/core";
 import { TextTrace } from "@text-trace/vue";
+import brandFontUrl from "./brand.woff?url";
 
 const font = await loadTextTraceFont({
-  source: "/fonts/brand.woff"
+  source: brandFontUrl
 });
 </script>
 
@@ -62,11 +76,13 @@ const font = await loadTextTraceFont({
 </template>
 ```
 
-## Fonts
+## Font Loading
 
-`@text-trace/core` does not bundle font files or fetch a default font during render. Load a font first, then pass the parsed font to the renderer.
+`@text-trace/core` does not bundle font files or fetch a default font during render. Load a font first, then pass the parsed font to the renderer or framework component.
 
-Pass one local font URL:
+### Recommended: local font URL
+
+Pass a stable local URL when possible. This lets Text Trace cache font requests and parsed font objects by URL.
 
 ```ts
 import { loadTextTraceFont } from "@text-trace/core";
@@ -77,13 +93,39 @@ const font = await loadTextTraceFont({
 });
 ```
 
-Or pass a font buffer / `opentype.js` `Font` object:
+You can also use a public path:
 
 ```ts
 const font = await loadTextTraceFont({
-  source: await fetch("/fonts/brand.woff").then((response) => response.arrayBuffer())
+  source: "/fonts/brand.woff"
 });
 ```
+
+### Custom fetch
+
+Use a source function when you need custom request options, such as authentication headers. Keep the `response.ok` check close to the request so failed font responses are easier to debug.
+
+```ts
+const font = await loadTextTraceFont({
+  source: async () => {
+    const response = await fetch("/fonts/brand.woff", {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Font request failed: ${response.status}`);
+    }
+
+    return response.arrayBuffer();
+  }
+});
+```
+
+You can also pass an `ArrayBuffer`, `Uint8Array`, or `opentype.js` `Font` object when your app already owns the font data.
+
+### WOFF2
 
 WOFF2 fonts are supported, but the decompressor must be provided explicitly. Install `wawoff2` if you want to use its browser binding, and host that binding with your app too:
 
@@ -99,15 +141,95 @@ const font = await loadTextTraceFont({
 });
 ```
 
-The CDN presets are exported as `TEXT_TRACE_FONT_URLS` and `TEXT_TRACE_CDN_FONT_URLS` for demos or quick experiments.
+### CDN presets
 
-## Accessibility
+The CDN presets are exported as `TEXT_TRACE_FONT_URLS` and `TEXT_TRACE_CDN_FONT_URLS` for demos or quick experiments. Production apps should usually host their own fonts.
+
+## Configuration
+
+### Style
+
+```ts
+createTextTrace(svg, {
+  content: {
+    text: "Snowcake47",
+    font
+  },
+  style: {
+    textColor: "#111827",
+    guideColor: "#111827",
+    mergeOverlappingShapes: true
+  }
+});
+```
+
+### Animation timing
+
+`animation.duration` is measured in milliseconds. `animation.timing` values are phase positions from `0` to `1`.
+
+```ts
+createTextTrace(svg, {
+  content: {
+    text: "Hello, world!",
+    font
+  },
+  animation: {
+    duration: 1000,
+    timing: {
+      horizontal: 0,
+      guide: 0.1,
+      stroke: 0.4,
+      fill: 0.8,
+      erase: 1
+    }
+  }
+});
+```
+
+### Guide generation
+
+```ts
+createTextTrace(svg, {
+  content: {
+    text: "Hello, world!",
+    font
+  },
+  guide: {
+    verticalOvershoot: 28,
+    verticalProbability: 0.45,
+    seed: "Hello, world!"
+  }
+});
+```
+
+### Accessibility
 
 The SVG uses `role="img"` and an accessible name by default. The name comes from `accessibility.ariaLabel` / `aria-label`, falling back to `content.text`. Core also inserts a `<title>` element as an SVG fallback.
 
 Use `accessibility.decorative: true` when the animation is purely decorative and real text is already present nearby.
 
-## Per-Glyph Styles
+### Events
+
+```ts
+createTextTrace(svg, {
+  content: {
+    text: "Snowcake47",
+    font
+  },
+  events: {
+    onPhaseChange(phase) {
+      console.log(phase);
+    },
+    onError(error) {
+      console.error(error);
+    }
+  }
+});
+```
+
+## Recipes
+
+### Per-glyph styles
 
 Use `glyphStyles` to override colors for specific character indexes. `from` is inclusive and `to` is exclusive.
 
@@ -140,7 +262,7 @@ createTextTrace(svg, {
 });
 ```
 
-## SVG Paths
+### SVG paths only
 
 Use `createTextTraceLayout` when you only need the generated glyph paths:
 
@@ -155,6 +277,27 @@ const result = await createTextTraceLayout({
 console.log(result.viewBox, result.paths.map((path) => path.d));
 ```
 
+### Manual playback
+
+```ts
+const trace = createTextTrace(svg, {
+  content: {
+    text: "Snowcake47",
+    font
+  }
+});
+
+await trace.render();
+await trace.replay();
+```
+
+## Packages
+
+- `@text-trace/core`: framework-agnostic SVG text trace animation.
+- `@text-trace/react`: React binding.
+- `@text-trace/vue`: Vue binding.
+- `text-trace-playground`: native TypeScript playground for debugging `@text-trace/core`.
+
 ## Development
 
 ```bash
@@ -168,35 +311,25 @@ Build all packages and the playground:
 pnpm build
 ```
 
-## Timing
+Run type checks and tests:
 
-`@text-trace/core` accepts an `animation.duration` option in milliseconds and an `animation.timing` option with phase positions from `0` to `1`:
+```bash
+pnpm check
+pnpm test
+```
 
-```ts
-createTextTrace(svg, {
-  content: {
-    text: "Hello, world!",
-    font
-  },
-  style: {
-    textColor: "#111827",
-    guideColor: "#111827",
-    mergeOverlappingShapes: true
-  },
-  animation: {
-    duration: 1000,
-    timing: {
-      horizontal: 0,
-      guide: 0.1,
-      stroke: 0.4,
-      fill: 0.8,
-      erase: 1
-    }
-  },
-  guide: {
-    verticalOvershoot: 28,
-    verticalProbability: 0.45,
-    seed: "Hello, world!"
-  }
-});
+## Release
+
+Releases are published by the GitHub Actions release workflow when a `v*.*.*` tag is pushed.
+
+Before the first trusted publish from a repository, configure npm trusted publishing for all packages:
+
+```bash
+pnpm trust:github Jannchie/text-trace
+```
+
+Use a different repository, workflow file, or npm environment when needed:
+
+```bash
+pnpm trust:github owner/repo release.yml npm
 ```
