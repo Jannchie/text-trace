@@ -14,24 +14,34 @@
 ## Usage
 
 ```ts
-import { createTextTrace } from "@text-trace/core";
+import { createTextTrace, loadTextTraceFont } from "@text-trace/core";
 
 const svg = document.querySelector<SVGSVGElement>("svg")!;
-const trace = createTextTrace(svg, {
-  text: "Snowcake47",
-  ariaLabel: "Snowcake47"
+const font = await loadTextTraceFont({
+  source: "/fonts/brand.woff"
 });
 
-await trace.render();
+const trace = createTextTrace(svg, {
+  content: {
+    text: "Snowcake47",
+    font
+  },
+  accessibility: {
+    ariaLabel: "Snowcake47"
+  }
+});
+
+await trace.play();
 ```
 
 React:
 
 ```tsx
 import { TextTrace } from "@text-trace/react";
+import type { TextTraceFont } from "@text-trace/core";
 
-export function Logo() {
-  return <TextTrace text="Snowcake47" aria-label="Snowcake47" />;
+export function Logo({ font }: { font: TextTraceFont }) {
+  return <TextTrace text="Snowcake47" font={font} aria-label="Snowcake47" />;
 }
 ```
 
@@ -39,40 +49,39 @@ Vue:
 
 ```vue
 <script setup lang="ts">
+import { loadTextTraceFont } from "@text-trace/core";
 import { TextTrace } from "@text-trace/vue";
+
+const font = await loadTextTraceFont({
+  source: "/fonts/brand.woff"
+});
 </script>
 
 <template>
-  <TextTrace text="Snowcake47" aria-label="Snowcake47" />
+  <TextTrace text="Snowcake47" :font="font" aria-label="Snowcake47" />
 </template>
 ```
 
 ## Fonts
 
-`@text-trace/core` does not bundle font files. The default font presets use CDN URLs for quick demos, so production pages should pass a font hosted by your own app.
+`@text-trace/core` does not bundle font files or fetch a default font during render. Load a font first, then pass the parsed font to the renderer.
 
-Pass one local font with `fontSource`:
+Pass one local font URL:
 
 ```ts
-import brandFontUrl from "./brand-font.woff?url";
+import { loadTextTraceFont } from "@text-trace/core";
+import brandFontUrl from "./brand.woff?url";
 
-createTextTrace(svg, {
-  text: "Snowcake47",
-  fontKey: "brand",
-  fontSource: brandFontUrl
+const font = await loadTextTraceFont({
+  source: brandFontUrl
 });
 ```
 
-Or pass multiple local fonts with `fontSources`:
+Or pass a font buffer / `opentype.js` `Font` object:
 
 ```ts
-createTextTrace(svg, {
-  text: "Snowcake47",
-  fontKey: "brand",
-  fontSources: {
-    brand: "/fonts/brand.woff",
-    display: "/fonts/display.woff"
-  }
+const font = await loadTextTraceFont({
+  source: await fetch("/fonts/brand.woff").then((response) => response.arrayBuffer())
 });
 ```
 
@@ -82,21 +91,21 @@ WOFF2 fonts are supported, but the decompressor must be provided explicitly. Ins
 import brandFontUrl from "./brand-font.woff2?url";
 import wawoff2Url from "wawoff2/build/decompress_binding.js?url";
 
-createTextTrace(svg, {
-  text: "Snowcake47",
-  fontKey: "brand",
-  fontSource: brandFontUrl,
-  wawoff2Url
+const font = await loadTextTraceFont({
+  source: brandFontUrl,
+  woff2: {
+    url: wawoff2Url
+  }
 });
 ```
 
-`fontUrls` is still supported as a backwards-compatible alias for URL-only sources. The CDN presets are exported as `TEXT_TRACE_FONT_URLS` and `TEXT_TRACE_CDN_FONT_URLS` for demos or quick experiments.
+The CDN presets are exported as `TEXT_TRACE_FONT_URLS` and `TEXT_TRACE_CDN_FONT_URLS` for demos or quick experiments.
 
 ## Accessibility
 
-The SVG uses `role="img"` and an accessible name by default. The name comes from `ariaLabel` / `aria-label`, falling back to `text`. Core also inserts a `<title>` element as an SVG fallback.
+The SVG uses `role="img"` and an accessible name by default. The name comes from `accessibility.ariaLabel` / `aria-label`, falling back to `content.text`. Core also inserts a `<title>` element as an SVG fallback.
 
-Use `decorative: true` when the animation is purely decorative and real text is already present nearby.
+Use `accessibility.decorative: true` when the animation is purely decorative and real text is already present nearby.
 
 ## Per-Glyph Styles
 
@@ -104,38 +113,43 @@ Use `glyphStyles` to override colors for specific character indexes. `from` is i
 
 ```ts
 createTextTrace(svg, {
-  text: "Snowcake47",
-  textColor: "#111827",
-  guideColor: "#111827",
-  glyphStyles: [
-    {
-      at: [8, 9],
-      style: {
-        textColor: "#2563eb",
-        guideColor: "#2563eb"
+  content: {
+    text: "Snowcake47",
+    font
+  },
+  style: {
+    textColor: "#111827",
+    guideColor: "#111827",
+    glyphStyles: [
+      {
+        at: [8, 9],
+        style: {
+          textColor: "#2563eb",
+          guideColor: "#2563eb"
+        }
+      },
+      {
+        from: 4,
+        to: 8,
+        style: {
+          textColor: "#dc2626"
+        }
       }
-    },
-    {
-      from: 4,
-      to: 8,
-      style: {
-        textColor: "#dc2626"
-      }
-    }
-  ]
+    ]
+  }
 });
 ```
 
 ## SVG Paths
 
-Use `getTextTracePaths` when you only need the generated glyph paths:
+Use `createTextTraceLayout` when you only need the generated glyph paths:
 
 ```ts
-import { getTextTracePaths } from "@text-trace/core";
+import { createTextTraceLayout } from "@text-trace/core";
 
-const result = await getTextTracePaths({
+const result = await createTextTraceLayout({
   text: "Snowcake47",
-  fontKey: "inter"
+  font
 });
 
 console.log(result.viewBox, result.paths.map((path) => path.d));
@@ -156,23 +170,33 @@ pnpm build
 
 ## Timing
 
-`@text-trace/core` accepts a `duration` option in milliseconds and a `timing` option with phase positions from `0` to `1`:
+`@text-trace/core` accepts an `animation.duration` option in milliseconds and an `animation.timing` option with phase positions from `0` to `1`:
 
 ```ts
 createTextTrace(svg, {
-  text: "Hello, world!",
-  textColor: "#111827",
-  guideColor: "#111827",
-  duration: 1000,
-  timing: {
-    horizontal: 0,
-    guide: 0.1,
-    stroke: 0.4,
-    fill: 0.8,
-    erase: 1
+  content: {
+    text: "Hello, world!",
+    font
   },
-  verticalGuideOvershoot: 28,
-  verticalGuideProbability: 0.45,
-  mergeOverlappingShapes: true
+  style: {
+    textColor: "#111827",
+    guideColor: "#111827",
+    mergeOverlappingShapes: true
+  },
+  animation: {
+    duration: 1000,
+    timing: {
+      horizontal: 0,
+      guide: 0.1,
+      stroke: 0.4,
+      fill: 0.8,
+      erase: 1
+    }
+  },
+  guide: {
+    verticalOvershoot: 28,
+    verticalProbability: 0.45,
+    seed: "Hello, world!"
+  }
 });
 ```

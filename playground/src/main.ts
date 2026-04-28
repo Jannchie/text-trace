@@ -1,5 +1,5 @@
-import { createTextTrace } from '@text-trace/core';
-import type { TextTraceFontKey } from '@text-trace/core';
+import { createTextTrace, DEFAULT_WAWOFF2_URL, loadTextTraceFont, TEXT_TRACE_FONT_URLS } from '@text-trace/core';
+import type { TextTraceError, TextTraceFontKey, TextTracePhase } from '@text-trace/core';
 import type { HighlighterCore } from 'shiki/core';
 import './styles.css';
 
@@ -11,6 +11,7 @@ interface HighlighterState {
 let highlighterState: HighlighterState | undefined;
 let highlighterPromise: Promise<HighlighterState> | undefined;
 let renderFrame: number | undefined;
+let renderRun = 0;
 
 const DEFAULT_TEXT = 'Hello, world!';
 const URL_PARAMS = {
@@ -70,13 +71,15 @@ const codeBlocks = Array.from(document.querySelectorAll<HTMLElement>('.usage-cod
 
 restoreFromUrl();
 
-function setPhase(phase: string | null | undefined): void {
+function setPhase(phase: TextTracePhase | null | undefined): void {
   phaseReadout.textContent = phase || 'Idle';
 }
 
-const trace = createTextTrace(svg, {
-  onPhaseChange: setPhase
-});
+function setError(error: TextTraceError | unknown): void {
+  phaseReadout.textContent = error instanceof Error ? error.message : 'error';
+}
+
+const trace = createTextTrace(svg);
 
 interface Snapshot {
   text: string;
@@ -112,36 +115,58 @@ function readSnapshot(): Snapshot {
   };
 }
 
-function render() {
+async function render(): Promise<void> {
+  const run = ++renderRun;
   const snap = readSnapshot();
   writeUrl(snap);
   updateSnippets(snap);
 
-  void trace.update({
-    text: snap.text,
-    fontKey: snap.fontKey,
-    textColor: snap.textColor,
-    guideColor: snap.guideColor,
-    duration: snap.duration,
-    timing: {
-      horizontal: snap.horizontal,
-      guide: snap.guide,
-      stroke: snap.stroke,
-      fill: snap.fill,
-      erase: snap.erase
-    },
-    verticalGuideOvershoot: snap.verticalGuideOvershoot,
-    verticalGuideProbability: snap.verticalGuideProbability,
-    mergeOverlappingShapes: snap.mergeOverlappingShapes,
-    onPhaseChange: setPhase
-  });
+  try {
+    const font = await loadTextTraceFont({
+      source: TEXT_TRACE_FONT_URLS[snap.fontKey],
+      woff2: { url: DEFAULT_WAWOFF2_URL }
+    });
+    if (run !== renderRun) return;
+
+    await trace.update({
+      content: {
+        text: snap.text,
+        font
+      },
+      style: {
+        textColor: snap.textColor,
+        guideColor: snap.guideColor,
+        mergeOverlappingShapes: snap.mergeOverlappingShapes
+      },
+      animation: {
+        duration: snap.duration,
+        timing: {
+          horizontal: snap.horizontal,
+          guide: snap.guide,
+          stroke: snap.stroke,
+          fill: snap.fill,
+          erase: snap.erase
+        }
+      },
+      guide: {
+        verticalOvershoot: snap.verticalGuideOvershoot,
+        verticalProbability: snap.verticalGuideProbability
+      },
+      events: {
+        onPhaseChange: setPhase,
+        onError: setError
+      }
+    });
+  } catch (error) {
+    if (run === renderRun) setError(error);
+  }
 }
 
 function scheduleRender(): void {
   if (renderFrame !== undefined) return;
   renderFrame = window.requestAnimationFrame(() => {
     renderFrame = undefined;
-    render();
+    void render();
   });
 }
 
@@ -178,7 +203,7 @@ copyButton.addEventListener('click', () => {
   });
 });
 
-render();
+void render();
 window.setTimeout(() => {
   void loadHighlighter().then((state) => {
     highlighterState = state;
@@ -237,24 +262,38 @@ function loadHighlighter(): Promise<HighlighterState> {
 }
 
 interface OptionsView {
-  text?: string;
   fontKey?: string;
-  textColor?: string;
-  guideColor?: string;
-  duration?: number;
-  timing?: Record<string, number>;
-  verticalGuideOvershoot?: number;
-  verticalGuideProbability?: number;
-  mergeOverlappingShapes?: boolean;
+  content?: {
+    text?: string;
+  };
+  style?: {
+    textColor?: string;
+    guideColor?: string;
+    mergeOverlappingShapes?: boolean;
+  };
+  animation?: {
+    duration?: number;
+    timing?: Record<string, number>;
+  };
+  guide?: {
+    verticalOvershoot?: number;
+    verticalProbability?: number;
+  };
 }
 
 function buildOptionsObject(snap: Snapshot): OptionsView {
   const view: OptionsView = {};
-  if (snap.text !== DEFAULTS.text) view.text = snap.text;
   if (snap.fontKey !== DEFAULTS.fontKey) view.fontKey = snap.fontKey;
-  if (snap.textColor !== DEFAULTS.textColor) view.textColor = snap.textColor;
-  if (snap.guideColor !== DEFAULTS.guideColor) view.guideColor = snap.guideColor;
-  if (snap.duration !== DEFAULTS.duration) view.duration = snap.duration;
+  if (snap.text !== DEFAULTS.text) view.content = { text: snap.text };
+
+  const style: OptionsView['style'] = {};
+  if (snap.textColor !== DEFAULTS.textColor) style.textColor = snap.textColor;
+  if (snap.guideColor !== DEFAULTS.guideColor) style.guideColor = snap.guideColor;
+  if (snap.mergeOverlappingShapes !== DEFAULTS.mergeOverlappingShapes) style.mergeOverlappingShapes = snap.mergeOverlappingShapes;
+  if (Object.keys(style).length > 0) view.style = style;
+
+  const animation: OptionsView['animation'] = {};
+  if (snap.duration !== DEFAULTS.duration) animation.duration = snap.duration;
 
   const timing: Record<string, number> = {};
   if (snap.horizontal !== DEFAULTS.horizontal) timing.horizontal = snap.horizontal;
@@ -262,38 +301,50 @@ function buildOptionsObject(snap: Snapshot): OptionsView {
   if (snap.stroke !== DEFAULTS.stroke) timing.stroke = snap.stroke;
   if (snap.fill !== DEFAULTS.fill) timing.fill = snap.fill;
   if (snap.erase !== DEFAULTS.erase) timing.erase = snap.erase;
-  if (Object.keys(timing).length > 0) view.timing = timing;
+  if (Object.keys(timing).length > 0) animation.timing = timing;
+  if (Object.keys(animation).length > 0) view.animation = animation;
 
-  if (snap.verticalGuideOvershoot !== DEFAULTS.verticalGuideOvershoot) view.verticalGuideOvershoot = snap.verticalGuideOvershoot;
-  if (snap.verticalGuideProbability !== DEFAULTS.verticalGuideProbability) view.verticalGuideProbability = snap.verticalGuideProbability;
-  if (snap.mergeOverlappingShapes !== DEFAULTS.mergeOverlappingShapes) view.mergeOverlappingShapes = snap.mergeOverlappingShapes;
+  const guide: OptionsView['guide'] = {};
+  if (snap.verticalGuideOvershoot !== DEFAULTS.verticalGuideOvershoot) guide.verticalOvershoot = snap.verticalGuideOvershoot;
+  if (snap.verticalGuideProbability !== DEFAULTS.verticalGuideProbability) guide.verticalProbability = snap.verticalGuideProbability;
+  if (Object.keys(guide).length > 0) view.guide = guide;
+
   return view;
 }
 
 function renderTsSnippet(opts: OptionsView): string {
+  const body = formatTsObject({
+    content: {
+      font: '__TEXT_TRACE_FONT__',
+      ...opts.content
+    },
+    ...(opts.style ? { style: opts.style } : {}),
+    ...(opts.animation ? { animation: opts.animation } : {}),
+    ...(opts.guide ? { guide: opts.guide } : {})
+  }, 0).replace(JSON.stringify('__TEXT_TRACE_FONT__'), 'font');
+
   const lines = [
-    `import { createTextTrace } from '@text-trace/core';`,
+    `import { createTextTrace, loadTextTraceFont, TEXT_TRACE_FONT_URLS } from '@text-trace/core';`,
     ``,
     `const svg = document.querySelector<SVGSVGElement>('svg')!;`,
-    ``
+    `const font = await loadTextTraceFont({ source: TEXT_TRACE_FONT_URLS${formatFontKeyAccess(opts.fontKey ?? DEFAULTS.fontKey)} });`,
+    ``,
+    `const trace = createTextTrace(svg, ${body});`,
+    `await trace.play();`
   ];
-
-  const body = formatTsObject(opts, 0);
-  if (body === '{}') {
-    lines.push(`createTextTrace(svg);`);
-  } else {
-    lines.push(`createTextTrace(svg, ${body});`);
-  }
 
   return lines.join('\n');
 }
 
 function renderVueSnippet(opts: OptionsView): string {
   const attrs = formatVueAttrs(opts);
-  const tag = attrs ? `<TextTrace\n${attrs}\n/>` : `<TextTrace />`;
+  const tag = `<TextTrace\n  :font="font"${attrs ? `\n${attrs}` : ''}\n/>`;
   return [
     `<script setup lang="ts">`,
+    `import { loadTextTraceFont, TEXT_TRACE_FONT_URLS } from '@text-trace/core';`,
     `import { TextTrace } from '@text-trace/vue';`,
+    ``,
+    `const font = await loadTextTraceFont({ source: TEXT_TRACE_FONT_URLS${formatFontKeyAccess(opts.fontKey ?? DEFAULTS.fontKey)} });`,
     `</script>`,
     ``,
     `<template>`,
@@ -304,9 +355,12 @@ function renderVueSnippet(opts: OptionsView): string {
 
 function renderReactSnippet(opts: OptionsView): string {
   const attrs = formatReactAttrs(opts);
-  const tag = attrs ? `<TextTrace\n${attrs}\n    />` : `<TextTrace />`;
+  const tag = `<TextTrace\n      font={font}${attrs ? `\n${attrs}` : ''}\n    />`;
   return [
+    `import { loadTextTraceFont, TEXT_TRACE_FONT_URLS } from '@text-trace/core';`,
     `import { TextTrace } from '@text-trace/react';`,
+    ``,
+    `const font = await loadTextTraceFont({ source: TEXT_TRACE_FONT_URLS${formatFontKeyAccess(opts.fontKey ?? DEFAULTS.fontKey)} });`,
     ``,
     `export function App() {`,
     `  return (`,
@@ -333,36 +387,35 @@ function formatTsObject(value: unknown, depth: number): string {
 
 function formatVueAttrs(opts: OptionsView): string {
   const lines: string[] = [];
-  if (opts.text !== undefined) lines.push(`  text=${JSON.stringify(opts.text)}`);
-  if (opts.fontKey !== undefined) lines.push(`  font-key=${JSON.stringify(opts.fontKey)}`);
-  if (opts.textColor !== undefined) lines.push(`  text-color=${JSON.stringify(opts.textColor)}`);
-  if (opts.guideColor !== undefined) lines.push(`  guide-color=${JSON.stringify(opts.guideColor)}`);
-  if (opts.duration !== undefined) lines.push(`  :duration="${opts.duration}"`);
-  if (opts.timing) lines.push(`  :timing="${formatInlineObject(opts.timing)}"`);
-  if (opts.verticalGuideOvershoot !== undefined) lines.push(`  :vertical-guide-overshoot="${opts.verticalGuideOvershoot}"`);
-  if (opts.verticalGuideProbability !== undefined) lines.push(`  :vertical-guide-probability="${opts.verticalGuideProbability}"`);
-  if (opts.mergeOverlappingShapes) lines.push(`  merge-overlapping-shapes`);
+  if (opts.content?.text !== undefined) lines.push(`  text=${JSON.stringify(opts.content.text)}`);
+  if (opts.style) lines.push(`  :style-options="${formatInlineObject(opts.style)}"`);
+  if (opts.animation) lines.push(`  :animation="${formatInlineObject(opts.animation)}"`);
+  if (opts.guide) lines.push(`  :guide="${formatInlineObject(opts.guide)}"`);
   return lines.join('\n');
 }
 
 function formatReactAttrs(opts: OptionsView): string {
   const pad = '      ';
   const lines: string[] = [];
-  if (opts.text !== undefined) lines.push(`${pad}text=${JSON.stringify(opts.text)}`);
-  if (opts.fontKey !== undefined) lines.push(`${pad}fontKey=${JSON.stringify(opts.fontKey)}`);
-  if (opts.textColor !== undefined) lines.push(`${pad}textColor=${JSON.stringify(opts.textColor)}`);
-  if (opts.guideColor !== undefined) lines.push(`${pad}guideColor=${JSON.stringify(opts.guideColor)}`);
-  if (opts.duration !== undefined) lines.push(`${pad}duration={${opts.duration}}`);
-  if (opts.timing) lines.push(`${pad}timing={${formatInlineObject(opts.timing)}}`);
-  if (opts.verticalGuideOvershoot !== undefined) lines.push(`${pad}verticalGuideOvershoot={${opts.verticalGuideOvershoot}}`);
-  if (opts.verticalGuideProbability !== undefined) lines.push(`${pad}verticalGuideProbability={${opts.verticalGuideProbability}}`);
-  if (opts.mergeOverlappingShapes) lines.push(`${pad}mergeOverlappingShapes`);
+  if (opts.content?.text !== undefined) lines.push(`${pad}text=${JSON.stringify(opts.content.text)}`);
+  if (opts.style) lines.push(`${pad}styleOptions={${formatInlineObject(opts.style)}}`);
+  if (opts.animation) lines.push(`${pad}animation={${formatInlineObject(opts.animation)}}`);
+  if (opts.guide) lines.push(`${pad}guide={${formatInlineObject(opts.guide)}}`);
   return lines.join('\n');
 }
 
-function formatInlineObject(obj: Record<string, number>): string {
-  const parts = Object.entries(obj).map(([k, v]) => `${k}: ${v}`);
+function formatInlineObject(obj: Record<string, unknown>): string {
+  const parts = Object.entries(obj).map(([k, v]) => {
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      return `${k}: ${formatInlineObject(v as Record<string, unknown>)}`;
+    }
+    return `${k}: ${JSON.stringify(v)}`;
+  });
   return `{ ${parts.join(', ')} }`;
+}
+
+function formatFontKeyAccess(fontKey: string): string {
+  return /^[a-zA-Z_$][\w$]*$/.test(fontKey) ? `.${fontKey}` : `[${JSON.stringify(fontKey)}]`;
 }
 
 function indent(text: string, levels: number): string {

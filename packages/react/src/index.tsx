@@ -1,9 +1,26 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { createTextTrace, TEXT_TRACE_VIEW_BOX } from '@text-trace/core';
-import type { TextTraceController, TextTraceOptions } from '@text-trace/core';
+import type {
+  TextTraceAnimationOptions,
+  TextTraceController,
+  TextTraceError,
+  TextTraceFont,
+  TextTraceGuideOptions,
+  TextTracePhase,
+  TextTraceStyleOptions
+} from '@text-trace/core';
 
-export interface TextTraceProps extends TextTraceOptions {
+export interface TextTraceProps {
+  text?: string;
+  font: TextTraceFont;
+  styleOptions?: TextTraceStyleOptions;
+  animation?: TextTraceAnimationOptions;
+  guide?: TextTraceGuideOptions;
+  ariaLabel?: string | null;
+  decorative?: boolean;
+  onPhaseChange?: (phase: TextTracePhase) => void;
+  onError?: (error: TextTraceError) => void;
   'aria-label'?: string;
   className?: string;
   style?: CSSProperties;
@@ -15,25 +32,15 @@ export function TextTrace({
   style,
   onReady,
   text = 'Hello, world!',
-  fontKey = 'noto-sc',
-  textColor = '#111827',
-  guideColor = '#111827',
-  duration,
-  timing,
-  verticalGuideOvershoot,
-  verticalGuideProbability,
-  mergeOverlappingShapes,
-  mergeCurveSegments,
-  glyphStyles,
-  fontSource,
-  fontSources,
-  fontUrls,
-  wawoff2Url,
-  wawoff2,
+  font,
+  styleOptions,
+  animation,
+  guide,
   ariaLabel,
   'aria-label': ariaLabelAttr,
   decorative,
-  onPhaseChange
+  onPhaseChange,
+  onError
 }: TextTraceProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const controllerRef = useRef<TextTraceController | null>(null);
@@ -65,44 +72,27 @@ export function TextTrace({
 
   useEffect(() => {
     void controllerRef.current?.update({
-      text,
-      fontKey,
-      textColor,
-      guideColor,
-      duration,
-      timing,
-      verticalGuideOvershoot,
-      verticalGuideProbability,
-      mergeOverlappingShapes,
-      mergeCurveSegments,
-      glyphStyles,
-      fontSource,
-      fontSources,
-      fontUrls,
-      wawoff2Url,
-      wawoff2,
-      ariaLabel: accessibleLabel,
-      decorative,
-      onPhaseChange
+      content: { text, font },
+      style: styleOptions,
+      animation,
+      guide,
+      accessibility: {
+        ariaLabel: accessibleLabel,
+        decorative
+      },
+      events: {
+        onPhaseChange,
+        onError
+      }
     });
   }, [
-    fontKey,
-    fontSources,
-    fontUrls,
-    guideColor,
-    duration,
+    animation,
+    font,
+    guide,
     onPhaseChange,
+    onError,
     text,
-    textColor,
-    timing,
-    verticalGuideOvershoot,
-    verticalGuideProbability,
-    mergeOverlappingShapes,
-    mergeCurveSegments,
-    glyphStyles,
-    fontSource,
-    wawoff2Url,
-    wawoff2,
+    styleOptions,
     accessibleLabel,
     decorative
   ]);

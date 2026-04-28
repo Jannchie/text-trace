@@ -1,7 +1,16 @@
 import { defineComponent, h, mergeProps, onBeforeUnmount, onMounted, watch } from 'vue';
 import type { PropType } from 'vue';
 import { createTextTrace, TEXT_TRACE_VIEW_BOX } from '@text-trace/core';
-import type { TextTraceController, TextTraceFontKey, TextTraceOptions } from '@text-trace/core';
+import type {
+  TextTraceAnimationOptions,
+  TextTraceController,
+  TextTraceError,
+  TextTraceFont,
+  TextTraceGuideOptions,
+  TextTracePhase,
+  TextTraceRenderOptions,
+  TextTraceStyleOptions
+} from '@text-trace/core';
 
 export const TextTrace = defineComponent({
   name: 'TextTrace',
@@ -10,64 +19,20 @@ export const TextTrace = defineComponent({
       type: String,
       default: 'Hello, world!'
     },
-    fontKey: {
-      type: String as PropType<TextTraceFontKey | string>,
-      default: 'noto-sc'
+    font: {
+      type: Object as PropType<TextTraceFont>,
+      required: true
     },
-    textColor: {
-      type: String,
-      default: '#111827'
-    },
-    guideColor: {
-      type: String,
-      default: '#111827'
-    },
-    duration: {
-      type: Number,
-      default: 1000
-    },
-    timing: {
-      type: Object as PropType<TextTraceOptions['timing']>,
+    styleOptions: {
+      type: Object as PropType<TextTraceStyleOptions>,
       default: undefined
     },
-    verticalGuideOvershoot: {
-      type: Number,
-      default: 28
-    },
-    verticalGuideProbability: {
-      type: Number,
-      default: 0.45
-    },
-    mergeOverlappingShapes: {
-      type: Boolean,
-      default: false
-    },
-    mergeCurveSegments: {
-      type: Number,
-      default: 12
-    },
-    glyphStyles: {
-      type: Array as PropType<TextTraceOptions['glyphStyles']>,
+    animation: {
+      type: Object as PropType<TextTraceAnimationOptions>,
       default: undefined
     },
-    fontSource: {
-      type: [String, Object, Function] as PropType<TextTraceOptions['fontSource']>,
-      default: undefined
-    },
-    fontSources: {
-      type: Object as PropType<TextTraceOptions['fontSources']>,
-      default: undefined
-    },
-    fontUrls: {
-      type: Object as PropType<TextTraceOptions['fontUrls']>,
-      default: undefined
-    },
-    wawoff2Url: {
-      type: String,
-      default: undefined
-    },
-    wawoff2: {
-      type: [Object, Function] as PropType<TextTraceOptions['wawoff2']>,
+    guide: {
+      type: Object as PropType<TextTraceGuideOptions>,
       default: undefined
     },
     ariaLabel: {
@@ -80,35 +45,33 @@ export const TextTrace = defineComponent({
     }
   },
   emits: {
-    'phase-change': (_phase: string) => true,
+    'phase-change': (_phase: TextTracePhase) => true,
+    error: (_error: TextTraceError) => true,
     ready: (_controller: TextTraceController) => true
   },
   setup(props, { attrs, emit }) {
     let controller: TextTraceController | undefined;
     let svg: SVGSVGElement | undefined;
     let renderQueued = false;
-    const emitPhaseChange = (phase: string) => emit('phase-change', phase);
+    const emitPhaseChange = (phase: TextTracePhase) => emit('phase-change', phase);
+    const emitError = (error: TextTraceError) => emit('error', error);
 
-    const readOptions = (): TextTraceOptions => ({
-      text: props.text,
-      fontKey: props.fontKey,
-      textColor: props.textColor,
-      guideColor: props.guideColor,
-      duration: props.duration,
-      timing: props.timing,
-      verticalGuideOvershoot: props.verticalGuideOvershoot,
-      verticalGuideProbability: props.verticalGuideProbability,
-      mergeOverlappingShapes: props.mergeOverlappingShapes,
-      mergeCurveSegments: props.mergeCurveSegments,
-      glyphStyles: props.glyphStyles,
-      fontSource: props.fontSource,
-      fontSources: props.fontSources,
-      fontUrls: props.fontUrls,
-      wawoff2Url: props.wawoff2Url,
-      wawoff2: props.wawoff2,
-      ariaLabel: props.ariaLabel ?? readAttrAriaLabel(attrs),
-      decorative: props.decorative,
-      onPhaseChange: emitPhaseChange
+    const readOptions = (): TextTraceRenderOptions => ({
+      content: {
+        text: props.text,
+        font: props.font
+      },
+      style: props.styleOptions,
+      animation: props.animation,
+      guide: props.guide,
+      accessibility: {
+        ariaLabel: props.ariaLabel ?? readAttrAriaLabel(attrs),
+        decorative: props.decorative
+      },
+      events: {
+        onPhaseChange: emitPhaseChange,
+        onError: emitError
+      }
     });
 
     const update = () => {
@@ -134,16 +97,7 @@ export const TextTrace = defineComponent({
     watch(
       () => [
         props.text,
-        props.fontKey,
-        props.textColor,
-        props.guideColor,
-        props.duration,
-        props.timing,
-        props.verticalGuideOvershoot,
-        props.verticalGuideProbability,
-        props.mergeOverlappingShapes,
-        props.mergeCurveSegments,
-        props.wawoff2Url,
+        props.font,
         props.ariaLabel,
         props.decorative
       ],
@@ -152,12 +106,9 @@ export const TextTrace = defineComponent({
 
     watch(
       () => [
-        props.timing,
-        props.glyphStyles,
-        props.fontSource,
-        props.fontSources,
-        props.fontUrls,
-        props.wawoff2
+        props.styleOptions,
+        props.animation,
+        props.guide
       ],
       queueUpdate,
       { deep: true }

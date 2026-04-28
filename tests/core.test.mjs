@@ -2,19 +2,20 @@ import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import opentype from '../packages/core/node_modules/opentype.js/dist/opentype.module.js';
-import { getTextTracePaths, loadTextTraceFont } from '../packages/core/dist/index.js';
+import { createTextTraceLayout, getTextTracePaths, loadTextTraceFont } from '../packages/core/dist/index.js';
 
-test('getTextTracePaths returns visible glyph paths with per-glyph styles', async () => {
-  const result = await getTextTracePaths({
+test('createTextTraceLayout returns visible glyph paths with per-glyph styles', async () => {
+  const result = await createTextTraceLayout({
     text: 'AB A',
-    fontKey: 'test',
-    fontSource: createTestFont(),
-    textColor: '#111111',
-    guideColor: '#222222',
-    glyphStyles: [
-      { at: 1, style: { textColor: '#ff0000' } },
-      { from: 3, to: 4, style: { guideColor: '#00ff00' } }
-    ]
+    font: createTestFont(),
+    style: {
+      textColor: '#111111',
+      guideColor: '#222222',
+      glyphStyles: [
+        { at: 1, style: { textColor: '#ff0000' } },
+        { from: 3, to: 4, style: { guideColor: '#00ff00' } }
+      ]
+    }
   });
 
   assert.equal(result.paths.length, 3);
@@ -25,12 +26,13 @@ test('getTextTracePaths returns visible glyph paths with per-glyph styles', asyn
   assert.equal(result.paths[0].fillRule, undefined);
 });
 
-test('getTextTracePaths keeps the public mergeOverlappingShapes result shape', async () => {
-  const result = await getTextTracePaths({
+test('createTextTraceLayout keeps the public mergeOverlappingShapes result shape', async () => {
+  const result = await createTextTraceLayout({
     text: 'A',
-    fontKey: 'test',
-    fontSource: createTestFont(),
-    mergeOverlappingShapes: true
+    font: createTestFont(),
+    style: {
+      mergeOverlappingShapes: true
+    }
   });
 
   assert.equal(result.paths.length, 1);
@@ -38,10 +40,19 @@ test('getTextTracePaths keeps the public mergeOverlappingShapes result shape', a
   assert.match(result.paths[0].d, /^M /);
 });
 
+test('getTextTracePaths is an alias for createTextTraceLayout', async () => {
+  const result = await getTextTracePaths({
+    text: 'A',
+    font: createTestFont()
+  });
+
+  assert.equal(result.paths.length, 1);
+});
+
 test('loadTextTraceFont caches parsed object font buffers', async () => {
   const buffer = createTestFont().toArrayBuffer();
-  const first = await loadTextTraceFont('test', { test: buffer });
-  const second = await loadTextTraceFont('test', { test: buffer });
+  const first = await loadTextTraceFont({ source: buffer });
+  const second = await loadTextTraceFont({ source: buffer });
 
   assert.equal(first, second);
 });
@@ -56,8 +67,8 @@ test('loadTextTraceFont shares concurrent function font sources', async () => {
   };
 
   const [first, second] = await Promise.all([
-    loadTextTraceFont('test', { test: source }),
-    loadTextTraceFont('test', { test: source })
+    loadTextTraceFont({ source }),
+    loadTextTraceFont({ source })
   ]);
 
   assert.equal(calls, 1);

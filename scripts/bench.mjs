@@ -1,22 +1,22 @@
 import { performance } from 'node:perf_hooks';
 import opentype from '../packages/core/node_modules/opentype.js/dist/opentype.module.js';
-import { getTextTracePaths } from '../packages/core/dist/index.js';
+import { createTextTraceLayout } from '../packages/core/dist/index.js';
 
 const font = createTestFont();
 const cases = [
-  { text: 'Hello, world!', mergeOverlappingShapes: false },
-  { text: 'Hello, world!', mergeOverlappingShapes: true },
-  { text: 'Text Trace '.repeat(8), mergeOverlappingShapes: false },
-  { text: 'Text Trace '.repeat(8), mergeOverlappingShapes: true }
+  { text: 'Hello, world!', style: { mergeOverlappingShapes: false } },
+  { text: 'Hello, world!', style: { mergeOverlappingShapes: true } },
+  { text: 'Text Trace '.repeat(8), style: { mergeOverlappingShapes: false } },
+  { text: 'Text Trace '.repeat(8), style: { mergeOverlappingShapes: true } }
 ];
 
 for (const options of cases) {
-  await getTextTracePaths({ ...options, fontKey: 'test', fontSource: font });
+  await createTextTraceLayout({ ...options, font });
   const samples = [];
 
   for (let i = 0; i < 30; i += 1) {
     const start = performance.now();
-    await getTextTracePaths({ ...options, fontKey: 'test', fontSource: font });
+    await createTextTraceLayout({ ...options, font });
     samples.push(performance.now() - start);
   }
 

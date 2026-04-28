@@ -7,28 +7,37 @@ Framework-agnostic SVG text tracing animation.
 This package does not bundle font files. For production, host fonts in your app and pass a local URL or font buffer:
 
 ```ts
-import { createTextTrace } from "@text-trace/core";
+import { createTextTrace, loadTextTraceFont } from "@text-trace/core";
 import fontUrl from "./brand.woff?url";
 
-const trace = createTextTrace(svg, {
-  text: "Snowcake47",
-  fontKey: "brand",
-  fontSource: fontUrl,
-  ariaLabel: "Snowcake47",
-  glyphStyles: [
-    {
-      at: [8, 9],
-      style: {
-        textColor: "#2563eb",
-        guideColor: "#2563eb"
-      }
-    }
-  ]
+const font = await loadTextTraceFont({
+  source: fontUrl
 });
 
-await trace.render();
+const trace = createTextTrace(svg, {
+  content: {
+    text: "Snowcake47",
+    font
+  },
+  accessibility: {
+    ariaLabel: "Snowcake47"
+  },
+  style: {
+    glyphStyles: [
+      {
+        at: [8, 9],
+        style: {
+          textColor: "#2563eb",
+          guideColor: "#2563eb"
+        }
+      }
+    ]
+  }
+});
+
+await trace.play();
 ```
 
-WOFF2 is supported when you provide a `wawoff2Url` or `wawoff2` module.
+WOFF2 is supported when you provide a `woff2.url` or `woff2.module` to `loadTextTraceFont()`.
 
-Use `getTextTracePaths()` when you only need generated SVG path data.
+Use `createTextTraceLayout()` when you only need generated SVG path data.
