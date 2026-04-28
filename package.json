@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "pnpm --filter @text-trace/core build && pnpm --filter @text-trace/vue build && pnpm --filter @text-trace/react build && pnpm --filter text-trace-playground build",
+    "test": "pnpm build && node --test tests/*.test.mjs",
+    "bench": "pnpm build && node scripts/bench.mjs",
     "check": "pnpm -r --if-present check",
     "dev": "pnpm --filter text-trace-playground dev",
     "playground": "pnpm --filter text-trace-playground dev",

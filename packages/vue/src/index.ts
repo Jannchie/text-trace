@@ -86,6 +86,8 @@ export const TextTrace = defineComponent({
   setup(props, { attrs, emit }) {
     let controller: TextTraceController | undefined;
     let svg: SVGSVGElement | undefined;
+    let renderQueued = false;
+    const emitPhaseChange = (phase: string) => emit('phase-change', phase);
 
     const readOptions = (): TextTraceOptions => ({
       text: props.text,
@@ -106,11 +108,20 @@ export const TextTrace = defineComponent({
       wawoff2: props.wawoff2,
       ariaLabel: props.ariaLabel ?? readAttrAriaLabel(attrs),
       decorative: props.decorative,
-      onPhaseChange: (phase) => emit('phase-change', phase)
+      onPhaseChange: emitPhaseChange
     });
 
-    const render = () => {
+    const update = () => {
       void controller?.update(readOptions());
+    };
+
+    const queueUpdate = () => {
+      if (!controller || renderQueued) return;
+      renderQueued = true;
+      queueMicrotask(() => {
+        renderQueued = false;
+        update();
+      });
     };
 
     onMounted(() => {
@@ -132,16 +143,23 @@ export const TextTrace = defineComponent({
         props.verticalGuideProbability,
         props.mergeOverlappingShapes,
         props.mergeCurveSegments,
+        props.wawoff2Url,
+        props.ariaLabel,
+        props.decorative
+      ],
+      queueUpdate
+    );
+
+    watch(
+      () => [
+        props.timing,
         props.glyphStyles,
         props.fontSource,
         props.fontSources,
         props.fontUrls,
-        props.wawoff2Url,
-        props.wawoff2,
-        props.ariaLabel,
-        props.decorative
+        props.wawoff2
       ],
-      render,
+      queueUpdate,
       { deep: true }
     );
 

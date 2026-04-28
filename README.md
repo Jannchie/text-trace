@@ -47,20 +47,6 @@ import { TextTrace } from "@text-trace/vue";
 </template>
 ```
 
-Nuxt:
-
-```vue
-<script setup lang="ts">
-import { TextTrace } from "@text-trace/vue";
-</script>
-
-<template>
-  <ClientOnly>
-    <TextTrace text="Snowcake47" aria-label="Snowcake47" />
-  </ClientOnly>
-</template>
-```
-
 ## Fonts
 
 `@text-trace/core` does not bundle font files. The default font presets use CDN URLs for quick demos, so production pages should pass a font hosted by your own app.

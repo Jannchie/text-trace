@@ -37,20 +37,31 @@ export function TextTrace({
 }: TextTraceProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const controllerRef = useRef<TextTraceController | null>(null);
+  const onReadyRef = useRef(onReady);
+  const hasReadyControllerRef = useRef(false);
   const accessibleLabel = resolveAccessibleLabel(ariaLabel ?? ariaLabelAttr, text);
+
+  useEffect(() => {
+    onReadyRef.current = onReady;
+    if (hasReadyControllerRef.current && controllerRef.current) {
+      onReady?.(controllerRef.current);
+    }
+  }, [onReady]);
 
   useEffect(() => {
     if (!svgRef.current) return undefined;
 
     const controller = createTextTrace(svgRef.current);
     controllerRef.current = controller;
-    onReady?.(controller);
+    hasReadyControllerRef.current = true;
+    onReadyRef.current?.(controller);
 
     return () => {
       controller.destroy();
       controllerRef.current = null;
+      hasReadyControllerRef.current = false;
     };
-  }, [onReady]);
+  }, []);
 
   useEffect(() => {
     void controllerRef.current?.update({

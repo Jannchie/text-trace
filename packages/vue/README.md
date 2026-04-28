@@ -2,8 +2,6 @@
 
 Vue component for SVG text tracing animation.
 
-In Nuxt, render it inside `<ClientOnly>` because the animation is browser-driven.
-
 ```vue
 <script setup lang="ts">
 import { TextTrace } from "@text-trace/vue";
@@ -21,15 +19,13 @@ const glyphStyles = [
 </script>
 
 <template>
-  <ClientOnly>
-    <TextTrace
-      text="Snowcake47"
-      font-key="brand"
-      :font-source="fontUrl"
-      :glyph-styles="glyphStyles"
-      aria-label="Snowcake47"
-    />
-  </ClientOnly>
+  <TextTrace
+    text="Snowcake47"
+    font-key="brand"
+    :font-source="fontUrl"
+    :glyph-styles="glyphStyles"
+    aria-label="Snowcake47"
+  />
 </template>
 ```
 

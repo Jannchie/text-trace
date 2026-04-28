@@ -1,21 +1,16 @@
 import { createTextTrace } from '@text-trace/core';
 import type { TextTraceFontKey } from '@text-trace/core';
-import { createHighlighterCore, type HighlighterCore } from 'shiki/core';
-import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
-import { jannchieLight } from '@jannchie/shiki-theme';
+import type { HighlighterCore } from 'shiki/core';
 import './styles.css';
 
-const SHIKI_THEME = jannchieLight.name;
-const highlighterPromise: Promise<HighlighterCore> = createHighlighterCore({
-  themes: [jannchieLight],
-  langs: [
-    import('shiki/langs/typescript.mjs'),
-    import('shiki/langs/vue.mjs'),
-    import('shiki/langs/tsx.mjs')
-  ],
-  engine: createJavaScriptRegexEngine()
-});
-let highlighter: HighlighterCore | undefined;
+interface HighlighterState {
+  highlighter: HighlighterCore;
+  themeName: string;
+}
+
+let highlighterState: HighlighterState | undefined;
+let highlighterPromise: Promise<HighlighterState> | undefined;
+let renderFrame: number | undefined;
 
 const DEFAULT_TEXT = 'Hello, world!';
 const URL_PARAMS = {
@@ -142,20 +137,28 @@ function render() {
   });
 }
 
-textInput.addEventListener('input', render);
-fontSelect.addEventListener('change', render);
-textColorInput.addEventListener('input', render);
-guideColorInput.addEventListener('input', render);
-durationInput.addEventListener('input', render);
-horizontalTimeInput.addEventListener('input', render);
-guideTimeInput.addEventListener('input', render);
-strokeTimeInput.addEventListener('input', render);
-fillTimeInput.addEventListener('input', render);
-eraseTimeInput.addEventListener('input', render);
-verticalOvershootInput.addEventListener('input', render);
-verticalProbabilityInput.addEventListener('input', render);
-mergeOverlapsInput.addEventListener('change', render);
-replayButton.addEventListener('click', render);
+function scheduleRender(): void {
+  if (renderFrame !== undefined) return;
+  renderFrame = window.requestAnimationFrame(() => {
+    renderFrame = undefined;
+    render();
+  });
+}
+
+textInput.addEventListener('input', scheduleRender);
+fontSelect.addEventListener('change', scheduleRender);
+textColorInput.addEventListener('input', scheduleRender);
+guideColorInput.addEventListener('input', scheduleRender);
+durationInput.addEventListener('input', scheduleRender);
+horizontalTimeInput.addEventListener('input', scheduleRender);
+guideTimeInput.addEventListener('input', scheduleRender);
+strokeTimeInput.addEventListener('input', scheduleRender);
+fillTimeInput.addEventListener('input', scheduleRender);
+eraseTimeInput.addEventListener('input', scheduleRender);
+verticalOvershootInput.addEventListener('input', scheduleRender);
+verticalProbabilityInput.addEventListener('input', scheduleRender);
+mergeOverlapsInput.addEventListener('change', scheduleRender);
+replayButton.addEventListener('click', scheduleRender);
 
 tabButtons.forEach((btn) => {
   btn.addEventListener('click', () => activateTab(btn.dataset.tab || 'ts'));
@@ -176,6 +179,12 @@ copyButton.addEventListener('click', () => {
 });
 
 render();
+window.setTimeout(() => {
+  void loadHighlighter().then((state) => {
+    highlighterState = state;
+    updateSnippets(readSnapshot());
+  });
+}, 0);
 
 function activateTab(tab: string): void {
   tabButtons.forEach((btn) => {
@@ -195,17 +204,37 @@ function updateSnippets(snap: Snapshot): void {
 
 function setSnippet(target: HTMLElement, code: string, lang: 'typescript' | 'vue' | 'tsx'): void {
   target.dataset.code = code;
-  if (highlighter) {
-    target.innerHTML = highlighter.codeToHtml(code, { lang, theme: SHIKI_THEME });
+  if (highlighterState) {
+    target.innerHTML = highlighterState.highlighter.codeToHtml(code, { lang, theme: highlighterState.themeName });
   } else {
     target.textContent = code;
   }
 }
 
-void highlighterPromise.then((instance) => {
-  highlighter = instance;
-  render();
-});
+function loadHighlighter(): Promise<HighlighterState> {
+  highlighterPromise ??= (async () => {
+    const [{ createHighlighterCore }, { createJavaScriptRegexEngine }, { jannchieLight }] = await Promise.all([
+      import('shiki/core'),
+      import('shiki/engine/javascript'),
+      import('@jannchie/shiki-theme')
+    ]);
+
+    return {
+      highlighter: await createHighlighterCore({
+        themes: [jannchieLight],
+        langs: [
+          import('shiki/langs/typescript.mjs'),
+          import('shiki/langs/vue.mjs'),
+          import('shiki/langs/tsx.mjs')
+        ],
+        engine: createJavaScriptRegexEngine()
+      }),
+      themeName: jannchieLight.name
+    };
+  })();
+
+  return highlighterPromise;
+}
 
 interface OptionsView {
   text?: string;
